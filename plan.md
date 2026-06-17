@@ -209,13 +209,19 @@ Completed:
   intervention evaluation.
 - Verified the refactored trainer on local CUDA with the saved FineWeb subset
   for 30 steps.
+- Added suffix-only loss masking for the repeating-pattern probe so the
+  impossible random prefix does not dominate the memory-dependent objective.
+- Corrected the shifted-state intervention to use a shorter-context state
+  rather than a latent-slot roll.
 
 Remaining:
 
 - Add randomized truncation boundaries, not only fixed segment lengths.
 - Expand synthetic tasks beyond the first exact-memory probe.
-- Fix the state-learning gate: the current exact-memory probe does not yet show
-  strong causal use of swapped/shifted state after short local training.
+- Strengthen the state-learning gate across seeds and perturbation strengths:
+  the suffix-only probe now beats zero/swapped/time-shifted state in one local
+  CUDA run, but perturbed state remains effectively tied and reproducibility is
+  not established.
 
 Acceptance criteria:
 

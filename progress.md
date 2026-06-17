@@ -58,3 +58,10 @@ This file records concise action summaries only. Detailed planning belongs in
 - The 200-step synthetic state probe completed, but did not pass the state
   causality gate: zero-state was worse, while shifted state was unchanged and
   swapped state was only marginally worse.
+- Added suffix-only loss masking for the repeating-pattern probe and fixed the
+  shifted-state intervention to use a shorter-context state instead of rolling
+  latent slots.
+- Resumed the suffix-only CUDA probe from step 500 to 600. At step 600, correct
+  state beat zero (`+0.6321` loss delta), swapped (`+0.0587`), and
+  time-shifted (`+0.0408`), while small perturbation remained tied
+  (`-0.0021`).

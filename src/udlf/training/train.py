@@ -67,18 +67,35 @@ def _autocast_context(device: torch.device, enabled: bool):
     return torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=enabled and device.type == "cuda")
 
 
+def _sample_training_batch(dataset, batch_size: int, device: torch.device) -> tuple[torch.Tensor, torch.Tensor | None]:
+    batch = dataset.sample(batch_size, device=device)
+    loss_mask = dataset.loss_mask(batch_size, device=device) if hasattr(dataset, "loss_mask") else None
+    return batch, loss_mask
+
+
+def _masked_sequence_loss(logits: torch.Tensor, targets: torch.Tensor, loss_mask: torch.Tensor | None, vocab_size: int) -> torch.Tensor:
+    losses = F.cross_entropy(logits.reshape(-1, vocab_size), targets.reshape(-1), reduction="none").reshape_as(targets)
+    if loss_mask is None:
+        return losses.mean()
+    selected = losses[loss_mask]
+    if selected.numel() == 0:
+        raise ValueError("loss_mask selected no target tokens")
+    return selected.mean()
+
+
 def _forward_segmented(
     model: UDLFStageAModel,
     batch: torch.Tensor,
     *,
+    loss_mask: torch.Tensor | None = None,
     segment_len: int,
     generator: torch.Generator,
     detach_state_between_segments: bool,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     if segment_len <= 0 or segment_len >= batch.shape[1] - 1:
-        output = model(batch, generator=generator)
-        assert output.loss is not None
-        return output.loss, output.final_state
+        logits, final_state = model.forward_prefix(batch[:, :-1], generator=generator)
+        loss = _masked_sequence_loss(logits, batch[:, 1:], loss_mask, model.config.vocab_size)
+        return loss, final_state
 
     losses: list[torch.Tensor] = []
     state = None
@@ -87,12 +104,17 @@ def _forward_segmented(
         end = min(start + segment_len, batch.shape[1] - 1)
         prefix = batch[:, start:end]
         targets = batch[:, start + 1 : end + 1]
-        output = model(prefix, targets=targets, state=state, generator=generator)
-        assert output.loss is not None
-        losses.append(output.loss)
-        last_state = output.final_state
-        state = output.final_state.detach() if detach_state_between_segments else output.final_state
+        segment_mask = loss_mask[:, start:end] if loss_mask is not None else None
+        logits, final_state = model.forward_prefix(prefix, state=state, generator=generator)
+        last_state = final_state
+        state = final_state.detach() if detach_state_between_segments else final_state
+        if segment_mask is not None and not bool(segment_mask.any()):
+            continue
+        loss = _masked_sequence_loss(logits, targets, segment_mask, model.config.vocab_size)
+        losses.append(loss)
     assert last_state is not None
+    if not losses:
+        raise ValueError("loss_mask selected no target tokens in the sequence")
     return torch.stack(losses).mean(), last_state
 
 
@@ -110,11 +132,17 @@ def _evaluate_loss(
     model.eval()
     losses: list[float] = []
     for _ in range(batches):
-        batch = dataset.sample(batch_size, device=device)
+        batch, loss_mask = _sample_training_batch(dataset, batch_size, device)
         with _autocast_context(device, use_amp):
-            output = model(batch, generator=generator)
-        assert output.loss is not None
-        losses.append(float(output.loss.detach().cpu()))
+            loss, _ = _forward_segmented(
+                model,
+                batch,
+                loss_mask=loss_mask,
+                segment_len=0,
+                generator=generator,
+                detach_state_between_segments=True,
+            )
+        losses.append(float(loss.detach().cpu()))
     model.train()
     return sum(losses) / max(1, len(losses))
 
@@ -140,6 +168,10 @@ def _evaluate_interventions(
 
     with _autocast_context(device, use_amp):
         _, state = model.forward_prefix(context, generator=generator)
+        if context.shape[1] > 1:
+            _, shifted_state = model.forward_prefix(context[:, :-1], generator=generator)
+        else:
+            shifted_state = torch.zeros_like(state)
 
         def loss_for(candidate_state: torch.Tensor) -> float:
             logits, _ = model.forward_prefix(suffix_prefix, state=candidate_state, generator=generator)
@@ -149,7 +181,7 @@ def _evaluate_interventions(
         correct = loss_for(state)
         zero = loss_for(torch.zeros_like(state))
         swapped = loss_for(state.flip(0))
-        shifted = loss_for(torch.roll(state, shifts=1, dims=1))
+        shifted = loss_for(shifted_state)
         perturbed = loss_for(state + 0.05 * torch.randn_like(state))
     model.train()
     return {
@@ -292,12 +324,13 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
             loss = None
             batch_tokens = 0
             for accum_index in range(train_config.grad_accum_steps):
-                batch = train_dataset.sample(train_config.batch_size, device=device)
+                batch, loss_mask = _sample_training_batch(train_dataset, train_config.batch_size, device)
                 batch_tokens += train_config.batch_size * (batch.shape[1] - 1)
                 with _autocast_context(device, train_config.amp):
                     micro_loss, final_state = _forward_segmented(
                         model,
                         batch,
+                        loss_mask=loss_mask,
                         segment_len=train_config.segment_len,
                         generator=noise_generator,
                         detach_state_between_segments=train_config.detach_state_between_segments,
@@ -472,4 +505,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

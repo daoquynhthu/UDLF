@@ -52,8 +52,18 @@ def build_datasets(config: UDLFTrainConfig):
         return train_dataset, eval_dataset
     model_config = config.model_config()
     return (
-        RepeatingPatternDataset(model_config.vocab_size, config.seq_len, seed=config.seed + 1),
-        RepeatingPatternDataset(model_config.vocab_size, config.seq_len, seed=config.seed + 10_000),
+        RepeatingPatternDataset(
+            model_config.vocab_size,
+            config.seq_len,
+            seed=config.seed + 1,
+            suffix_loss_only=config.synthetic_suffix_loss_only,
+        ),
+        RepeatingPatternDataset(
+            model_config.vocab_size,
+            config.seq_len,
+            seed=config.seed + 10_000,
+            suffix_loss_only=config.synthetic_suffix_loss_only,
+        ),
     )
 
 
@@ -75,4 +85,3 @@ def build_scheduler(optimizer: torch.optim.Optimizer, *, max_steps: int, warmup_
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(__import__("json").dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-

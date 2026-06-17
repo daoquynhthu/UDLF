@@ -11,13 +11,14 @@ class RepeatingPatternDataset:
     intentionally simple and deterministic under a seeded generator.
     """
 
-    def __init__(self, vocab_size: int, seq_len: int, *, seed: int = 0) -> None:
+    def __init__(self, vocab_size: int, seq_len: int, *, seed: int = 0, suffix_loss_only: bool = False) -> None:
         if seq_len < 4:
             raise ValueError("seq_len must be >= 4")
         if vocab_size <= 4:
             raise ValueError("vocab_size must be > 4")
         self.vocab_size = vocab_size
         self.seq_len = seq_len
+        self.suffix_loss_only = suffix_loss_only
         self.generator = torch.Generator().manual_seed(seed)
 
     def sample(self, batch_size: int, device: torch.device | str = "cpu") -> Tensor:
@@ -26,6 +27,14 @@ class RepeatingPatternDataset:
         repeated = prefix[:, : self.seq_len - half]
         sequence = torch.cat([prefix, repeated], dim=1)
         return sequence.to(device)
+
+    def loss_mask(self, batch_size: int, device: torch.device | str = "cpu") -> Tensor | None:
+        if not self.suffix_loss_only:
+            return None
+        half = self.seq_len // 2
+        mask = torch.zeros(batch_size, self.seq_len - 1, dtype=torch.bool)
+        mask[:, max(0, half - 1) :] = True
+        return mask.to(device)
 
 
 class TokenDatasetFromDisk:

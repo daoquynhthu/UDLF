@@ -26,6 +26,7 @@ class UDLFTrainConfig:
     validation_split: str = "validation"
     data_column: str = "input_ids"
     seq_len: int = 16
+    synthetic_suffix_loss_only: bool = False
 
     batch_size: int = 8
     max_steps: int = 20
@@ -136,4 +137,3 @@ def train_config_from_dict(raw: dict[str, Any]) -> UDLFTrainConfig:
     allowed = {field.name for field in fields(UDLFTrainConfig)}
     filtered = {key: value for key, value in normalized.items() if key in allowed}
     return UDLFTrainConfig(**filtered)
-

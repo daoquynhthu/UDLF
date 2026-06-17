@@ -21,6 +21,11 @@ Evidence:
 - A 200-step repeating-pattern CUDA probe stayed near the random-token baseline;
   zero-state was worse, shifted state was unchanged, and swapped state was only
   marginally worse.
+- After adding suffix-only loss masking and correcting shifted-state evaluation,
+  a 600-step CUDA probe showed correct state beating zero, swapped, and
+  time-shifted state in one run. This is encouraging but still not a closed
+  gate because small perturbations were effectively tied and cross-seed
+  reproducibility is not measured.
 
 Impact:
 

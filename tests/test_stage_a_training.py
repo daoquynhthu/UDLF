@@ -5,7 +5,7 @@ import json
 import torch
 from datasets import Dataset, DatasetDict
 
-from udlf.data import TokenDatasetFromDisk
+from udlf.data import RepeatingPatternDataset, TokenDatasetFromDisk
 from udlf.training.config import train_config_from_dict
 from udlf.training.train import run_stage_a
 
@@ -101,3 +101,14 @@ def test_token_dataset_from_disk_samples_batches(tmp_path):
 
     assert batch.shape == (2, 3)
     assert batch.dtype == torch.long
+
+
+def test_repeating_pattern_suffix_loss_mask():
+    dataset = RepeatingPatternDataset(vocab_size=16, seq_len=8, seed=1, suffix_loss_only=True)
+
+    mask = dataset.loss_mask(batch_size=2)
+
+    assert mask is not None
+    assert mask.shape == (2, 7)
+    assert mask[:, :3].sum().item() == 0
+    assert mask[:, 3:].all()
