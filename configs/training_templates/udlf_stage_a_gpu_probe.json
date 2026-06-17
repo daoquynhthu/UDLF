@@ -1,0 +1,32 @@
+{
+  "description": "Local RTX 5060 Stage A GPU probe with eval, interventions, segmentation, AMP, and checkpointing.",
+  "parameters": {
+    "mode": "stage-a",
+    "run_dir": "runs/udlf_stage_a_gpu_probe",
+    "seed": 2026,
+    "device": "cuda",
+    "vocab_size": 128,
+    "seq_len": 64,
+    "batch_size": 16,
+    "steps": 40,
+    "learning_rate": 0.0008,
+    "weight_decay": 0.01,
+    "grad_clip": 1.0,
+    "latent_slots": 16,
+    "latent_dim": 128,
+    "embed_dim": 128,
+    "ff_multiplier": 4,
+    "latent_heads": 4,
+    "readout_heads": 4,
+    "solver_steps": 4,
+    "diffusion_mode": "state_dependent",
+    "sigma_min": 0.0001,
+    "sigma_max": 0.02,
+    "segment_len": 16,
+    "detach_state_between_segments": true,
+    "amp": true,
+    "eval_every": 10,
+    "eval_batches": 4,
+    "save_every": 20
+  }
+}

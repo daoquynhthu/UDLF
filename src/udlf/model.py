@@ -68,6 +68,7 @@ class UDLFStageAModel(nn.Module):
         input_ids: Tensor,
         *,
         targets: Tensor | None = None,
+        state: Tensor | None = None,
         generator: torch.Generator | None = None,
     ) -> StageAOutput:
         if targets is None:
@@ -80,6 +81,6 @@ class UDLFStageAModel(nn.Module):
             if targets.shape != prefix.shape:
                 raise ValueError("targets must match input_ids shape when provided")
 
-        logits, final_state = self.forward_prefix(prefix, generator=generator)
+        logits, final_state = self.forward_prefix(prefix, state=state, generator=generator)
         loss = F.cross_entropy(logits.reshape(-1, self.config.vocab_size), targets.reshape(-1))
         return StageAOutput(logits=logits, loss=loss, final_state=final_state)

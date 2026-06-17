@@ -5,29 +5,45 @@ materially affect execution. Fast, one-off fixes should not be recorded here.
 
 ## Active
 
-### Stage A training harness does not exist yet
+### Stage A state-causality gate is not passing yet
 
 Status: open.
 
-The remote workflow can now handle generic UDLF SSH, sync, status, log, STOP,
-and detached-launch operations. A minimal `udlf.training.train` smoke entrypoint
-exists, but it only validates workflow plumbing. It is not the UDLF stage A
-training loop. A minimal Stage A model forward/loss now exists, but there is no
-real data pipeline, optimizer loop, checkpoint policy, or intervention
-evaluation yet.
+The Stage A training harness now has real-data loading, CUDA execution,
+segmented carry, checkpoint/resume, metrics, and intervention evaluation. The
+training pipeline itself is usable, but the current exact-memory synthetic probe
+does not yet prove that the model relies on the persistent latent state.
+
+Evidence:
+
+- A 30-step FineWeb CUDA probe made zero-state much worse than correct state,
+  but swapped state was effectively tied with correct state.
+- A 200-step repeating-pattern CUDA probe stayed near the random-token baseline;
+  zero-state was worse, shifted state was unchanged, and swapped state was only
+  marginally worse.
 
 Impact:
 
-- Remote code sync and inspection can be prepared.
-- Remote smoke runs can be used to validate infrastructure.
-- Real UDLF model training cannot be launched yet.
+- The local trainer can be used for controlled experiments.
+- Remote scale-up should still wait; the current failure is conceptual/training
+  objective related, not an infrastructure blocker.
 
 Resolution direction:
 
-- Implement the real stage A training loop and synthetic task pipeline.
-- Keep smoke runs clearly labeled as infrastructure checks.
+- Add a clearer controlled state-carry task or mask the impossible prefix loss
+  so the memory-dependent portion is directly optimized.
+- Add randomized truncation boundaries and stricter intervention pass/fail
+  metrics.
+- Only promote Phase 3 to complete once correct state reliably beats
+  zero/swapped/shifted/perturbed state across seeds.
 
 
 ## Resolved
 
-None yet.
+### Stage A training harness missing checkpoint and intervention infrastructure
+
+Resolved on 2026-06-17.
+
+The harness now includes config/runtime/logging/checkpoint modules, run config
+snapshots, async metrics, CSV export, latest/best checkpoints, resume support,
+failed-run checkpoints, segmented state carry, and intervention evaluation.

@@ -33,3 +33,28 @@ This file records concise action summaries only. Detailed planning belongs in
   and smoke forward runs for `ode` and `state_dependent` diffusion modes.
 - Completed Phase 2 by adding fixed-diffusion reproducibility and explicit
   state-carry equivalence tests.
+- Committed Phase 0 through Phase 2 as
+  `5f526c4 Initialize UDLF workspace and stage A skeleton`.
+- Started Phase 3 by adding a repeating-pattern synthetic dataset and minimal
+  CPU Stage A optimizer loop.
+- Added `configs/training_templates/udlf_stage_a_local_smoke.json` and a
+  training-loop test.
+- Verified with `pytest tests -q` and a local
+  `python -m udlf.training.train --config configs\training_templates\udlf_stage_a_local_smoke.json`
+  run.
+- Confirmed the local machine has CUDA-enabled PyTorch on the RTX 5060 and ran
+  a 20-step real-data FineWeb probe from a private temp config.
+- Added disk-backed dataset loading for saved token datasets and Stage A
+  template configs for local smoke, GPU probe, and local saved-data training.
+- Refactored Stage A training into config/runtime/logging/checkpoint modules
+  with run config snapshots, async metrics, CSV export, atomic latest/best
+  checkpoints, resume, failed-run checkpoints, gradient accumulation, scheduler
+  support, segmented carry, and intervention metrics.
+- Verified the refactored training pipeline with `pytest tests -q`, static
+  compile checks, an isolation scan for unrelated project names, a 30-step CUDA
+  FineWeb run, and a 200-step CUDA synthetic state probe.
+- The 30-step FineWeb probe completed with eval loss `10.4699`, latest/best
+  checkpoints, `metrics.jsonl`, `metrics.csv`, and `config.json`.
+- The 200-step synthetic state probe completed, but did not pass the state
+  causality gate: zero-state was worse, while shifted state was unchanged and
+  swapped state was only marginally worse.

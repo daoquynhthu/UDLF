@@ -1,0 +1,23 @@
+{
+  "description": "Small CPU Stage A training smoke on a repeating-pattern synthetic task.",
+  "parameters": {
+    "mode": "stage-a",
+    "run_dir": "runs/udlf_stage_a_local_smoke",
+    "seed": 123,
+    "device": "cpu",
+    "vocab_size": 32,
+    "seq_len": 12,
+    "batch_size": 4,
+    "steps": 4,
+    "learning_rate": 0.001,
+    "grad_clip": 1.0,
+    "latent_slots": 4,
+    "latent_dim": 16,
+    "embed_dim": 16,
+    "ff_multiplier": 2,
+    "latent_heads": 4,
+    "readout_heads": 2,
+    "solver_steps": 2,
+    "diffusion_mode": "ode"
+  }
+}

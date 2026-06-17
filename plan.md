@@ -121,7 +121,7 @@ Verification:
 
 ## Phase 2: Minimal UDLF Implementation Skeleton
 
-Status: in progress.
+Status: complete.
 
 Purpose:
 
@@ -192,6 +192,30 @@ Tasks:
 - Add ODE, fixed diffusion, and state-dependent diffusion switches.
 - Add state intervention evaluation: correct state, zero state, swapped state,
   time-shifted state, and perturbed state.
+
+Completed:
+
+- Added a deterministic repeating-pattern synthetic dataset.
+- Added a minimal CPU Stage A optimizer loop with metrics and `train.log`.
+- Added a local Stage A smoke config.
+- Added test coverage that verifies the training loop writes metrics.
+- Added disk-backed token dataset sampling for locally saved Hugging Face
+  datasets.
+- Refactored the Stage A trainer into explicit config, runtime, logging, and
+  checkpoint modules.
+- Added run-local `config.json`, async JSONL metrics, CSV conversion, atomic
+  latest/best checkpoints, resume support, failed-run checkpoint capture,
+  gradient accumulation, scheduler support, segmented state carry, and state
+  intervention evaluation.
+- Verified the refactored trainer on local CUDA with the saved FineWeb subset
+  for 30 steps.
+
+Remaining:
+
+- Add randomized truncation boundaries, not only fixed segment lengths.
+- Expand synthetic tasks beyond the first exact-memory probe.
+- Fix the state-learning gate: the current exact-memory probe does not yet show
+  strong causal use of swapped/shifted state after short local training.
 
 Acceptance criteria:
 
@@ -306,6 +330,6 @@ Acceptance criteria:
 
 ## Current Priority
 
-Finish Phase 0, then adapt the remote workflow enough that future UDLF code can
-be synced and inspected on the remote 4090 without inheriting another project's
-training semantics.
+Push Phase 3 past the state-causality gate locally: improve the controlled task,
+training target, or model path until correct latent state reliably beats
+zero/swapped/misaligned state before starting remote scale-up.
