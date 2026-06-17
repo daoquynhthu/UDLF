@@ -74,3 +74,14 @@ This file records concise action summaries only. Detailed planning belongs in
 - Made intervention perturbation strength configurable. Re-evaluating seed
   `556` with perturb std `0.2` made the perturbation failure larger, so random
   perturbation is not yet a reliable destructive intervention for this model.
+- Added randomized segment lengths for segmented state-carry training, with the
+  suffix probe template using a 6-12 token range.
+- Upgraded intervention evaluation to average multiple perturbation trials and
+  log attenuated and inverted-state probes.
+- Added `scripts/run_state_probe_matrix.py` with resume support and
+  core/robustness check profiles.
+- Ran a CUDA matrix for seeds `557` and `558`, first to 300 steps and then
+  resumed to 600. At 600, both seeds strongly failed zero state and passed
+  swapped state; seed `557` had shifted delta `+0.0171`, just under the current
+  `+0.02` core threshold. Inverted state was strongly destructive in both runs,
+  while perturbation and attenuation stayed near zero.

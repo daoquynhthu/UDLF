@@ -11,6 +11,8 @@ DEFAULT_THRESHOLDS = {
     "intervention_swapped_delta": 0.03,
     "intervention_shifted_delta": 0.02,
     "intervention_perturbed_delta": 0.0,
+    "intervention_attenuated_delta": 0.0,
+    "intervention_inverted_delta": 0.0,
 }
 
 
@@ -32,10 +34,13 @@ def _last_eval_row(metrics_path: Path) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Check the latest Stage A state intervention metrics.")
     parser.add_argument("metrics", type=Path, help="Path to metrics.jsonl")
+    parser.add_argument("--profile", choices=["all", "core", "robustness"], default="all")
     parser.add_argument("--zero", type=float, default=DEFAULT_THRESHOLDS["intervention_zero_delta"])
     parser.add_argument("--swapped", type=float, default=DEFAULT_THRESHOLDS["intervention_swapped_delta"])
     parser.add_argument("--shifted", type=float, default=DEFAULT_THRESHOLDS["intervention_shifted_delta"])
     parser.add_argument("--perturbed", type=float, default=DEFAULT_THRESHOLDS["intervention_perturbed_delta"])
+    parser.add_argument("--attenuated", type=float, default=DEFAULT_THRESHOLDS["intervention_attenuated_delta"])
+    parser.add_argument("--inverted", type=float, default=DEFAULT_THRESHOLDS["intervention_inverted_delta"])
     args = parser.parse_args(argv)
 
     row = _last_eval_row(args.metrics)
@@ -44,7 +49,21 @@ def main(argv: list[str] | None = None) -> int:
         "intervention_swapped_delta": args.swapped,
         "intervention_shifted_delta": args.shifted,
         "intervention_perturbed_delta": args.perturbed,
+        "intervention_attenuated_delta": args.attenuated,
+        "intervention_inverted_delta": args.inverted,
     }
+    if args.profile == "core":
+        thresholds = {
+            key: value
+            for key, value in thresholds.items()
+            if key in {"intervention_zero_delta", "intervention_swapped_delta", "intervention_shifted_delta", "intervention_inverted_delta"}
+        }
+    elif args.profile == "robustness":
+        thresholds = {
+            key: value
+            for key, value in thresholds.items()
+            if key in {"intervention_perturbed_delta", "intervention_attenuated_delta"}
+        }
     failed: list[str] = []
     for key, threshold in thresholds.items():
         value = float(row.get(key, float("-inf")))
@@ -54,6 +73,9 @@ def main(argv: list[str] | None = None) -> int:
     summary = {
         "step": row.get("step"),
         "eval_loss_lm": row.get("eval_loss_lm"),
+        "intervention_perturb_std": row.get("intervention_perturb_std"),
+        "intervention_perturb_trials": row.get("intervention_perturb_trials"),
+        "profile": args.profile,
         **{key: row.get(key) for key in thresholds},
         "passed": not failed,
     }
@@ -66,4 +88,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

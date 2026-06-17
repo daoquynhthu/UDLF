@@ -118,6 +118,19 @@ def _forward_segmented(
     return torch.stack(losses).mean(), last_state
 
 
+def _choose_segment_len(config: UDLFTrainConfig, generator: torch.Generator, device: torch.device) -> int:
+    if config.segment_len_min > 0 and config.segment_len_max > 0:
+        value = torch.randint(
+            config.segment_len_min,
+            config.segment_len_max + 1,
+            (1,),
+            generator=generator,
+            device=device,
+        )
+        return int(value.item())
+    return config.segment_len
+
+
 @torch.no_grad()
 def _evaluate_loss(
     model: UDLFStageAModel,
@@ -157,6 +170,7 @@ def _evaluate_interventions(
     generator: torch.Generator,
     use_amp: bool,
     perturb_std: float,
+    perturb_trials: int,
 ) -> dict[str, float]:
     model.eval()
     batch = dataset.sample(max(2, batch_size), device=device)
@@ -183,19 +197,36 @@ def _evaluate_interventions(
         zero = loss_for(torch.zeros_like(state))
         swapped = loss_for(state.flip(0))
         shifted = loss_for(shifted_state)
-        perturbed = loss_for(state + perturb_std * torch.randn_like(state))
+        attenuated = loss_for(state * 0.5)
+        inverted = loss_for(-state)
+        perturb_losses = [
+            loss_for(state + perturb_std * torch.randn_like(state))
+            for _ in range(max(1, perturb_trials))
+        ]
+        perturbed = sum(perturb_losses) / len(perturb_losses)
+        perturb_min = min(perturb_losses)
+        perturb_max = max(perturb_losses)
     model.train()
     return {
         "intervention_perturb_std": perturb_std,
+        "intervention_perturb_trials": float(len(perturb_losses)),
         "intervention_correct_loss": correct,
         "intervention_zero_loss": zero,
         "intervention_swapped_loss": swapped,
         "intervention_shifted_loss": shifted,
         "intervention_perturbed_loss": perturbed,
+        "intervention_perturbed_min_loss": perturb_min,
+        "intervention_perturbed_max_loss": perturb_max,
+        "intervention_attenuated_loss": attenuated,
+        "intervention_inverted_loss": inverted,
         "intervention_zero_delta": zero - correct,
         "intervention_swapped_delta": swapped - correct,
         "intervention_shifted_delta": shifted - correct,
         "intervention_perturbed_delta": perturbed - correct,
+        "intervention_perturbed_min_delta": perturb_min - correct,
+        "intervention_perturbed_max_delta": perturb_max - correct,
+        "intervention_attenuated_delta": attenuated - correct,
+        "intervention_inverted_delta": inverted - correct,
     }
 
 
@@ -333,7 +364,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                         model,
                         batch,
                         loss_mask=loss_mask,
-                        segment_len=train_config.segment_len,
+                        segment_len=_choose_segment_len(train_config, noise_generator, device),
                         generator=noise_generator,
                         detach_state_between_segments=train_config.detach_state_between_segments,
                     )
@@ -391,6 +422,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                         generator=noise_generator,
                         use_amp=train_config.amp,
                         perturb_std=train_config.intervention_perturb_std,
+                        perturb_trials=train_config.intervention_perturb_trials,
                     )
                 )
                 if eval_loss < best_eval:

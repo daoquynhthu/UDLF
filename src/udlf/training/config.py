@@ -40,12 +40,15 @@ class UDLFTrainConfig:
     min_lr_ratio: float = 1.0
 
     segment_len: int = 0
+    segment_len_min: int = 0
+    segment_len_max: int = 0
     detach_state_between_segments: bool = True
 
     log_every: int = 1
     eval_every: int = 0
     eval_batches: int = 4
     intervention_perturb_std: float = 0.05
+    intervention_perturb_trials: int = 8
     save_every: int = 0
     latest_every: int = 0
     async_checkpoint: bool = True
@@ -87,6 +90,12 @@ class UDLFTrainConfig:
             raise ValueError("log_every must be >= 1")
         if self.stop_check_every < 1:
             raise ValueError("stop_check_every must be >= 1")
+        if self.segment_len_min < 0 or self.segment_len_max < 0:
+            raise ValueError("segment_len_min and segment_len_max must be >= 0")
+        if self.segment_len_min and self.segment_len_max and self.segment_len_min > self.segment_len_max:
+            raise ValueError("segment_len_min must be <= segment_len_max")
+        if self.intervention_perturb_trials < 1:
+            raise ValueError("intervention_perturb_trials must be >= 1")
 
     def model_config(self) -> UDLFModelConfig:
         return UDLFModelConfig(

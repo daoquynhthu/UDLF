@@ -213,18 +213,20 @@ Completed:
   impossible random prefix does not dominate the memory-dependent objective.
 - Corrected the shifted-state intervention to use a shorter-context state
   rather than a latent-slot roll.
+- Added randomized segment length support for Stage A state-carry training.
+- Replaced single-sample perturbation evaluation with multi-trial perturbation
+  averages plus attenuated and inverted-state probes.
+- Added a multi-seed suffix-probe matrix runner with resume support.
 
 Remaining:
 
-- Add randomized truncation boundaries, not only fixed segment lengths.
 - Expand synthetic tasks beyond the first exact-memory probe.
-- Strengthen the state-learning gate across seeds and perturbation strengths:
-  the suffix-only probe now beats zero/swapped/time-shifted state in one local
-  CUDA run, but perturbed state remains effectively tied and reproducibility is
-  not established.
-- Replace the single-sample random perturbation gate with an averaged or
-  structured robustness test. Two CUDA seeds now support zero/swapped/time-shift
-  causality, while random perturbation can still lower loss.
+- Strengthen the core state-causality gate across seeds: two additional CUDA
+  matrix seeds at 600 steps passed zero and swapped-state checks, but one
+  shifted-state delta remained just below the current threshold.
+- Define a robustness gate separately from core causality. Inverted state is
+  strongly destructive, while random perturbation and attenuation remain near
+  zero and should not be treated as solved.
 
 Acceptance criteria:
 
@@ -239,7 +241,8 @@ Verification:
 
 - Local smoke training.
 - Synthetic task metric report.
-- Reproducibility check across at least two seeds for the smallest task.
+- Reproducibility check across at least two seeds for the smallest task using
+  `scripts/run_state_probe_matrix.py`.
 
 ## Phase 4: Numerical and Architectural Ablations
 

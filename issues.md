@@ -34,6 +34,10 @@ Evidence:
   perturbation should be treated as a separate state-manifold robustness problem
   until it is averaged across trials or replaced with a more structured
   intervention.
+- A two-seed matrix with randomized segment lengths at 600 steps produced strong
+  zero and swapped deltas, and inverted-state damage was very large. One seed
+  still missed the shifted-state threshold slightly, while perturbation and
+  attenuation remained near zero even when averaged across trials.
 
 Impact:
 
@@ -45,10 +49,13 @@ Resolution direction:
 
 - Add a clearer controlled state-carry task or mask the impossible prefix loss
   so the memory-dependent portion is directly optimized.
-- Add randomized truncation boundaries and stricter intervention pass/fail
-  metrics.
-- Only promote Phase 3 to complete once correct state reliably beats
-  zero/swapped/shifted/perturbed state across seeds.
+- Keep core causality and robustness as separate gates.
+- Add another controlled task that requires ordered temporal state, not only
+  value retention, so shifted-state failure is less ambiguous.
+- Only promote Phase 3 to complete once correct state reliably beats zero,
+  swapped, and time-shifted state across seeds; treat perturbation/attenuation
+  as a robustness gate unless the architecture is changed to make them
+  semantically meaningful destructive interventions.
 
 
 ## Resolved
