@@ -26,6 +26,9 @@ Evidence:
   time-shifted state in one run. This is encouraging but still not a closed
   gate because small perturbations were effectively tied and cross-seed
   reproducibility is not measured.
+- `scripts/check_state_probe.py` makes this explicit: the current suffix probe
+  fails the default gate because `intervention_perturbed_delta` is slightly
+  negative.
 
 Impact:
 

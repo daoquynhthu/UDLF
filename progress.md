@@ -65,3 +65,6 @@ This file records concise action summaries only. Detailed planning belongs in
   state beat zero (`+0.6321` loss delta), swapped (`+0.0587`), and
   time-shifted (`+0.0408`), while small perturbation remained tied
   (`-0.0021`).
+- Added `scripts/check_state_probe.py` to turn the latest eval intervention
+  metrics into a pass/fail gate. The current suffix probe fails only the
+  perturbation threshold under the default criteria.
