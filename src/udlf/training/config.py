@@ -45,6 +45,7 @@ class UDLFTrainConfig:
     log_every: int = 1
     eval_every: int = 0
     eval_batches: int = 4
+    intervention_perturb_std: float = 0.05
     save_every: int = 0
     latest_every: int = 0
     async_checkpoint: bool = True

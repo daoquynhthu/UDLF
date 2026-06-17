@@ -29,6 +29,11 @@ Evidence:
 - `scripts/check_state_probe.py` makes this explicit: the current suffix probe
   fails the default gate because `intervention_perturbed_delta` is slightly
   negative.
+- A second seed reproduced the zero/swapped/time-shifted result, but increasing
+  perturbation strength to `0.2` made the perturbation metric worse. Random
+  perturbation should be treated as a separate state-manifold robustness problem
+  until it is averaged across trials or replaced with a more structured
+  intervention.
 
 Impact:
 

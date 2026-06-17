@@ -23,6 +23,7 @@
   "amp": true,
   "eval_every": 100,
   "eval_batches": 4,
+  "intervention_perturb_std": 0.2,
   "save_every": 100,
   "log_every": 50,
   "async_checkpoint": true,

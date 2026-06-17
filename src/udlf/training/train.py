@@ -156,6 +156,7 @@ def _evaluate_interventions(
     device: torch.device,
     generator: torch.Generator,
     use_amp: bool,
+    perturb_std: float,
 ) -> dict[str, float]:
     model.eval()
     batch = dataset.sample(max(2, batch_size), device=device)
@@ -182,9 +183,10 @@ def _evaluate_interventions(
         zero = loss_for(torch.zeros_like(state))
         swapped = loss_for(state.flip(0))
         shifted = loss_for(shifted_state)
-        perturbed = loss_for(state + 0.05 * torch.randn_like(state))
+        perturbed = loss_for(state + perturb_std * torch.randn_like(state))
     model.train()
     return {
+        "intervention_perturb_std": perturb_std,
         "intervention_correct_loss": correct,
         "intervention_zero_loss": zero,
         "intervention_swapped_loss": swapped,
@@ -388,6 +390,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                         device=device,
                         generator=noise_generator,
                         use_amp=train_config.amp,
+                        perturb_std=train_config.intervention_perturb_std,
                     )
                 )
                 if eval_loss < best_eval:

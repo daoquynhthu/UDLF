@@ -68,3 +68,9 @@ This file records concise action summaries only. Detailed planning belongs in
 - Added `scripts/check_state_probe.py` to turn the latest eval intervention
   metrics into a pass/fail gate. The current suffix probe fails only the
   perturbation threshold under the default criteria.
+- Ran a second suffix-only CUDA probe with seed `556`; correct state again beat
+  zero, swapped, and time-shifted state, but random perturbation still improved
+  loss slightly.
+- Made intervention perturbation strength configurable. Re-evaluating seed
+  `556` with perturb std `0.2` made the perturbation failure larger, so random
+  perturbation is not yet a reliable destructive intervention for this model.

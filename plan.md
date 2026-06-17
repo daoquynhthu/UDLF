@@ -222,6 +222,9 @@ Remaining:
   the suffix-only probe now beats zero/swapped/time-shifted state in one local
   CUDA run, but perturbed state remains effectively tied and reproducibility is
   not established.
+- Replace the single-sample random perturbation gate with an averaged or
+  structured robustness test. Two CUDA seeds now support zero/swapped/time-shift
+  causality, while random perturbation can still lower loss.
 
 Acceptance criteria:
 
