@@ -1,0 +1,8 @@
+{
+  "description": "Minimal UDLF smoke run for validating remote sync, detached launch, logs, metrics, and STOP handling.",
+  "parameters": {
+    "run_dir": "runs/udlf_remote_smoke",
+    "steps": 5,
+    "sleep_seconds": 0.2
+  }
+}
