@@ -92,3 +92,16 @@ This file records concise action summaries only. Detailed planning belongs in
 - Ran query-recall CUDA probes for seeds `700` and `701` to 400 steps. Both
   passed the core gate; seed `700` also passed robustness, while seed `701`
   still failed robustness because perturbation delta was slightly negative.
+- Ran query-recall seeds `702` and `703`. Seed `702` passed the core gate at
+  400 steps. Seed `703` had strong zero/swapped signals but weak shifted delta
+  at 400 and 800 steps under the one-token shift metric.
+- Added configurable `intervention_shift_tokens`; query recall now uses a
+  stronger 6-token shift because one-token truncation only removes one memory
+  slot and is too weak for random-position queries.
+- Added matrix runner overrides for eval/save/log intervals so checkpointed
+  runs can be resumed and re-evaluated without hand-written temporary config
+  mutation.
+- An ad-hoc PowerShell resume/eval attempt omitted the intended resume field and
+  overwrote the ignored seed `703` query-recall checkpoint with a short new run.
+  The repository is unaffected, but that run directory is no longer reliable
+  for checkpoint continuation.

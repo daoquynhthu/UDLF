@@ -48,6 +48,7 @@ class UDLFTrainConfig:
     log_every: int = 1
     eval_every: int = 0
     eval_batches: int = 4
+    intervention_shift_tokens: int = 1
     intervention_perturb_std: float = 0.05
     intervention_perturb_trials: int = 8
     save_every: int = 0
@@ -97,6 +98,8 @@ class UDLFTrainConfig:
             raise ValueError("segment_len_min must be <= segment_len_max")
         if self.intervention_perturb_trials < 1:
             raise ValueError("intervention_perturb_trials must be >= 1")
+        if self.intervention_shift_tokens < 1:
+            raise ValueError("intervention_shift_tokens must be >= 1")
 
     def model_config(self) -> UDLFModelConfig:
         return UDLFModelConfig(

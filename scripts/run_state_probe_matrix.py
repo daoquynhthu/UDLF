@@ -43,6 +43,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run-prefix", default="runs/udlf_state_probe_matrix")
     parser.add_argument("--device", default="")
     parser.add_argument("--max-steps", type=int, default=0)
+    parser.add_argument("--eval-every", type=int, default=0)
+    parser.add_argument("--save-every", type=int, default=0)
+    parser.add_argument("--log-every", type=int, default=0)
     parser.add_argument("--summary", type=Path, default=Path("runs/udlf_state_probe_matrix_summary.json"))
     parser.add_argument("--check", action="store_true", help="Run check_state_probe.py after each seed.")
     parser.add_argument("--check-profile", choices=["all", "core", "robustness"], default="all")
@@ -66,6 +69,12 @@ def main(argv: list[str] | None = None) -> int:
                 config["device"] = args.device
             if args.max_steps > 0:
                 config["max_steps"] = args.max_steps
+            if args.eval_every > 0:
+                config["eval_every"] = args.eval_every
+            if args.save_every > 0:
+                config["save_every"] = args.save_every
+            if args.log_every > 0:
+                config["log_every"] = args.log_every
             config_path = temp_root / f"seed{seed}.json"
             config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             _run([sys.executable, "-m", "udlf.training.train", "--config", str(config_path)], cwd=repo_root)
@@ -85,6 +94,7 @@ def main(argv: list[str] | None = None) -> int:
                     "zero_delta": row.get("intervention_zero_delta"),
                     "swapped_delta": row.get("intervention_swapped_delta"),
                     "shifted_delta": row.get("intervention_shifted_delta"),
+                    "shift_tokens": row.get("intervention_shift_tokens"),
                     "perturbed_delta": row.get("intervention_perturbed_delta"),
                     "attenuated_delta": row.get("intervention_attenuated_delta"),
                     "inverted_delta": row.get("intervention_inverted_delta"),

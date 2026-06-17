@@ -231,6 +231,8 @@ Remaining:
 - Define a robustness gate separately from core causality. Inverted state is
   strongly destructive, while random perturbation and attenuation remain near
   zero and should not be treated as solved.
+- Harden experiment artifact handling so ad-hoc eval or resume attempts cannot
+  accidentally overwrite useful checkpoints without an explicit resume path.
 
 Acceptance criteria:
 

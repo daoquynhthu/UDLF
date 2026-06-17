@@ -60,6 +60,29 @@ Resolution direction:
   as a robustness gate unless the architecture is changed to make them
   semantically meaningful destructive interventions.
 
+### Experiment checkpoints can be overwritten by ad-hoc run config mistakes
+
+Status: open.
+
+An ad-hoc query-recall re-evaluation intended to resume seed `703` omitted the
+resume field in the generated temporary config and overwrote that ignored run
+directory's `latest.pt` and `best.pt` with a short fresh run.
+
+Impact:
+
+- The repository is not affected because `runs/` is ignored.
+- The seed `703` run directory should not be used for checkpoint continuation
+  without rerunning it.
+- Manual temp-config mutation is too error-prone for checkpointed experiments.
+
+Resolution direction:
+
+- Use `scripts/run_state_probe_matrix.py --resume-existing` for resumed matrix
+  runs.
+- Keep eval/save/log interval overrides in the runner instead of hand-editing
+  temporary configs.
+- Add stricter trainer-side resume guards before longer experiments.
+
 
 ## Resolved
 

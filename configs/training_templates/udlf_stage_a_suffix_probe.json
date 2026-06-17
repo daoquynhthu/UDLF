@@ -25,6 +25,7 @@
   "amp": true,
   "eval_every": 100,
   "eval_batches": 4,
+  "intervention_shift_tokens": 1,
   "intervention_perturb_std": 0.2,
   "intervention_perturb_trials": 16,
   "save_every": 100,

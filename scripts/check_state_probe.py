@@ -75,6 +75,7 @@ def main(argv: list[str] | None = None) -> int:
         "eval_loss_lm": row.get("eval_loss_lm"),
         "intervention_perturb_std": row.get("intervention_perturb_std"),
         "intervention_perturb_trials": row.get("intervention_perturb_trials"),
+        "intervention_shift_tokens": row.get("intervention_shift_tokens"),
         "profile": args.profile,
         **{key: row.get(key) for key in thresholds},
         "passed": not failed,

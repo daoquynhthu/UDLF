@@ -169,6 +169,7 @@ def _evaluate_interventions(
     device: torch.device,
     generator: torch.Generator,
     use_amp: bool,
+    shift_tokens: int,
     perturb_std: float,
     perturb_trials: int,
 ) -> dict[str, float]:
@@ -185,8 +186,8 @@ def _evaluate_interventions(
 
     with _autocast_context(device, use_amp):
         _, state = model.forward_prefix(context, generator=generator)
-        if context.shape[1] > 1:
-            _, shifted_state = model.forward_prefix(context[:, :-1], generator=generator)
+        if context.shape[1] > shift_tokens:
+            _, shifted_state = model.forward_prefix(context[:, :-shift_tokens], generator=generator)
         else:
             shifted_state = torch.zeros_like(state)
 
@@ -212,6 +213,7 @@ def _evaluate_interventions(
     return {
         "intervention_perturb_std": perturb_std,
         "intervention_perturb_trials": float(len(perturb_losses)),
+        "intervention_shift_tokens": float(shift_tokens),
         "intervention_correct_loss": correct,
         "intervention_zero_loss": zero,
         "intervention_swapped_loss": swapped,
@@ -423,6 +425,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                         device=device,
                         generator=noise_generator,
                         use_amp=train_config.amp,
+                        shift_tokens=train_config.intervention_shift_tokens,
                         perturb_std=train_config.intervention_perturb_std,
                         perturb_trials=train_config.intervention_perturb_trials,
                     )
