@@ -38,6 +38,9 @@ Evidence:
   zero and swapped deltas, and inverted-state damage was very large. One seed
   still missed the shifted-state threshold slightly, while perturbation and
   attenuation remained near zero even when averaged across trials.
+- Query recall gives a cleaner core-causality signal than repeat. Seeds `700`
+  and `701` passed the core gate at 400 steps, but robustness still did not
+  consistently pass because perturbation can remain neutral or slightly helpful.
 
 Impact:
 
@@ -50,8 +53,8 @@ Resolution direction:
 - Add a clearer controlled state-carry task or mask the impossible prefix loss
   so the memory-dependent portion is directly optimized.
 - Keep core causality and robustness as separate gates.
-- Add another controlled task that requires ordered temporal state, not only
-  value retention, so shifted-state failure is less ambiguous.
+- Use query recall as the ordered temporal-state gate and run a wider seed
+  matrix before closing Phase 3.
 - Only promote Phase 3 to complete once correct state reliably beats zero,
   swapped, and time-shifted state across seeds; treat perturbation/attenuation
   as a robustness gate unless the architecture is changed to make them

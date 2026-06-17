@@ -26,6 +26,7 @@ class UDLFTrainConfig:
     validation_split: str = "validation"
     data_column: str = "input_ids"
     seq_len: int = 16
+    synthetic_task: str = "repeat"
     synthetic_suffix_loss_only: bool = False
 
     batch_size: int = 8

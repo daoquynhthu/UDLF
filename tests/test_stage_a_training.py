@@ -5,7 +5,7 @@ import json
 import torch
 from datasets import Dataset, DatasetDict
 
-from udlf.data import RepeatingPatternDataset, TokenDatasetFromDisk
+from udlf.data import QueryRecallDataset, RepeatingPatternDataset, TokenDatasetFromDisk
 from udlf.training.config import train_config_from_dict
 from udlf.training.train import run_stage_a
 
@@ -112,3 +112,22 @@ def test_repeating_pattern_suffix_loss_mask():
     assert mask.shape == (2, 7)
     assert mask[:, :3].sum().item() == 0
     assert mask[:, 3:].all()
+
+
+def test_query_recall_dataset_masks_query_answer_targets():
+    dataset = QueryRecallDataset(vocab_size=64, seq_len=18, seed=1)
+
+    batch = dataset.sample(batch_size=4)
+    mask = dataset.loss_mask(batch_size=4)
+
+    assert batch.shape == (4, 18)
+    assert mask.shape == (4, 17)
+    assert dataset.intervention_split() == dataset.memory_len
+    query_positions = mask[0].nonzero().flatten().tolist()
+    assert query_positions
+    for position in query_positions:
+        query_token = int(batch[0, position].item())
+        answer_token = int(batch[0, position + 1].item())
+        memory_index = query_token - dataset.query_base
+        assert 0 <= memory_index < dataset.memory_len
+        assert answer_token == int(batch[0, memory_index].item())

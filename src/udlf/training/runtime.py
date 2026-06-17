@@ -7,7 +7,7 @@ from typing import Any
 
 import torch
 
-from udlf.data import RepeatingPatternDataset, TokenDatasetFromDisk
+from udlf.data import QueryRecallDataset, RepeatingPatternDataset, TokenDatasetFromDisk
 from udlf.training.config import UDLFTrainConfig
 
 
@@ -51,20 +51,27 @@ def build_datasets(config: UDLFTrainConfig):
         )
         return train_dataset, eval_dataset
     model_config = config.model_config()
-    return (
-        RepeatingPatternDataset(
-            model_config.vocab_size,
-            config.seq_len,
-            seed=config.seed + 1,
-            suffix_loss_only=config.synthetic_suffix_loss_only,
-        ),
-        RepeatingPatternDataset(
-            model_config.vocab_size,
-            config.seq_len,
-            seed=config.seed + 10_000,
-            suffix_loss_only=config.synthetic_suffix_loss_only,
-        ),
-    )
+    if config.synthetic_task == "repeat":
+        return (
+            RepeatingPatternDataset(
+                model_config.vocab_size,
+                config.seq_len,
+                seed=config.seed + 1,
+                suffix_loss_only=config.synthetic_suffix_loss_only,
+            ),
+            RepeatingPatternDataset(
+                model_config.vocab_size,
+                config.seq_len,
+                seed=config.seed + 10_000,
+                suffix_loss_only=config.synthetic_suffix_loss_only,
+            ),
+        )
+    if config.synthetic_task == "query_recall":
+        return (
+            QueryRecallDataset(model_config.vocab_size, config.seq_len, seed=config.seed + 1),
+            QueryRecallDataset(model_config.vocab_size, config.seq_len, seed=config.seed + 10_000),
+        )
+    raise ValueError(f"unknown synthetic_task={config.synthetic_task!r}")
 
 
 def build_scheduler(optimizer: torch.optim.Optimizer, *, max_steps: int, warmup_steps: int, min_lr_ratio: float):

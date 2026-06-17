@@ -217,13 +217,17 @@ Completed:
 - Replaced single-sample perturbation evaluation with multi-trial perturbation
   averages plus attenuated and inverted-state probes.
 - Added a multi-seed suffix-probe matrix runner with resume support.
+- Added a query-recall synthetic task that requires binding prior positions to
+  values and answering query tokens from persistent state.
 
 Remaining:
 
-- Expand synthetic tasks beyond the first exact-memory probe.
-- Strengthen the core state-causality gate across seeds: two additional CUDA
-  matrix seeds at 600 steps passed zero and swapped-state checks, but one
-  shifted-state delta remained just below the current threshold.
+- Broaden the query-recall matrix beyond the first two CUDA seeds and define the
+  minimum seed count for Phase 3 completion.
+- Strengthen the repeat-task core state-causality gate if it remains part of
+  the acceptance suite: two additional CUDA matrix seeds at 600 steps passed
+  zero and swapped-state checks, but one shifted-state delta remained just below
+  the current threshold.
 - Define a robustness gate separately from core causality. Inverted state is
   strongly destructive, while random perturbation and attenuation remain near
   zero and should not be treated as solved.
@@ -233,6 +237,8 @@ Acceptance criteria:
 - Local training runs complete on at least one small synthetic task.
 - Correct latent state beats zero/swapped/misaligned state on a task that
   actually requires memory.
+- At least two seeds pass the core state-causality gate on an ordered recall
+  task.
 - Diffusion parameters do not immediately saturate at bounds without being
   reported.
 - Failure modes are visible in logs rather than silent.

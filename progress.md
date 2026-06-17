@@ -85,3 +85,10 @@ This file records concise action summaries only. Detailed planning belongs in
   swapped state; seed `557` had shifted delta `+0.0171`, just under the current
   `+0.02` core threshold. Inverted state was strongly destructive in both runs,
   while perturbation and attenuation stayed near zero.
+- Added `QueryRecallDataset`, where prefix values must be recalled through
+  later query tokens, plus a `udlf_stage_a_query_recall_probe.json` template.
+- Updated intervention evaluation to respect dataset-specific intervention
+  splits and loss masks, so query-recall metrics only score answer targets.
+- Ran query-recall CUDA probes for seeds `700` and `701` to 400 steps. Both
+  passed the core gate; seed `700` also passed robustness, while seed `701`
+  still failed robustness because perturbation delta was slightly negative.

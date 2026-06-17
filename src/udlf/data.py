@@ -36,6 +36,46 @@ class RepeatingPatternDataset:
         mask[:, max(0, half - 1) :] = True
         return mask.to(device)
 
+    def intervention_split(self) -> int:
+        return self.seq_len // 2
+
+
+class QueryRecallDataset:
+    """Synthetic key-value recall where query tokens request prior positions."""
+
+    def __init__(self, vocab_size: int, seq_len: int, *, seed: int = 0) -> None:
+        if seq_len < 12:
+            raise ValueError("seq_len must be >= 12")
+        self.memory_len = max(4, seq_len // 3)
+        if vocab_size <= self.memory_len + 8:
+            raise ValueError("vocab_size must leave room for query tokens and values")
+        self.vocab_size = vocab_size
+        self.seq_len = seq_len
+        self.query_base = vocab_size - self.memory_len
+        self.generator = torch.Generator().manual_seed(seed)
+
+    def sample(self, batch_size: int, device: torch.device | str = "cpu") -> Tensor:
+        values = torch.randint(1, self.query_base, (batch_size, self.memory_len), generator=self.generator)
+        sequence = values
+        while sequence.shape[1] + 2 <= self.seq_len:
+            indices = torch.randint(0, self.memory_len, (batch_size, 1), generator=self.generator)
+            queries = self.query_base + indices
+            answers = values.gather(1, indices)
+            sequence = torch.cat([sequence, queries, answers], dim=1)
+        if sequence.shape[1] < self.seq_len:
+            filler = torch.randint(1, self.query_base, (batch_size, self.seq_len - sequence.shape[1]), generator=self.generator)
+            sequence = torch.cat([sequence, filler], dim=1)
+        return sequence.to(device)
+
+    def loss_mask(self, batch_size: int, device: torch.device | str = "cpu") -> Tensor:
+        mask = torch.zeros(batch_size, self.seq_len - 1, dtype=torch.bool)
+        for position in range(self.memory_len, self.seq_len - 1, 2):
+            mask[:, position] = True
+        return mask.to(device)
+
+    def intervention_split(self) -> int:
+        return self.memory_len
+
 
 class TokenDatasetFromDisk:
     """Random batches from a Hugging Face dataset saved with load_from_disk."""

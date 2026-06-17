@@ -173,13 +173,15 @@ def _evaluate_interventions(
     perturb_trials: int,
 ) -> dict[str, float]:
     model.eval()
-    batch = dataset.sample(max(2, batch_size), device=device)
-    split = max(1, batch.shape[1] // 2)
+    batch_size = max(2, batch_size)
+    batch, loss_mask = _sample_training_batch(dataset, batch_size, device)
+    split = dataset.intervention_split() if hasattr(dataset, "intervention_split") else max(1, batch.shape[1] // 2)
     if split >= batch.shape[1] - 1:
         split = batch.shape[1] - 2
     context = batch[:, :split]
     suffix_prefix = batch[:, split:-1]
     suffix_targets = batch[:, split + 1 :]
+    suffix_mask = loss_mask[:, split:] if loss_mask is not None else None
 
     with _autocast_context(device, use_amp):
         _, state = model.forward_prefix(context, generator=generator)
@@ -190,7 +192,7 @@ def _evaluate_interventions(
 
         def loss_for(candidate_state: torch.Tensor) -> float:
             logits, _ = model.forward_prefix(suffix_prefix, state=candidate_state, generator=generator)
-            loss = F.cross_entropy(logits.reshape(-1, model.config.vocab_size), suffix_targets.reshape(-1))
+            loss = _masked_sequence_loss(logits, suffix_targets, suffix_mask, model.config.vocab_size)
             return float(loss.detach().cpu())
 
         correct = loss_for(state)
