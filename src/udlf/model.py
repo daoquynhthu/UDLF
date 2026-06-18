@@ -35,9 +35,10 @@ class UDLFStageAModel(nn.Module):
     terminal state forward.
     """
 
-    def __init__(self, config: UDLFModelConfig) -> None:
+    def __init__(self, config: UDLFModelConfig, *, enable_posterior: bool = False) -> None:
         super().__init__()
         self.config = config
+        self.enable_posterior = enable_posterior
         self.embedding = nn.Embedding(config.vocab_size, config.embed_dim)
         self.output_weight = self.embedding.weight if config.tie_embeddings else nn.Parameter(
             torch.empty(config.vocab_size, config.embed_dim)
@@ -47,7 +48,7 @@ class UDLFStageAModel(nn.Module):
         self.initial_state = nn.Parameter(torch.zeros(config.latent_slots, config.latent_dim))
         self.inject = ObservationInjection(config)
         self.prior = PriorDynamics(config)
-        self.posterior_control = PosteriorControl(config)
+        self.posterior_control = PosteriorControl(config) if enable_posterior else None
         self.readout = LatentReadout(config)
 
     def init_state(self, batch_size: int, *, device: torch.device | None = None, dtype: torch.dtype | None = None) -> Tensor:
@@ -76,7 +77,7 @@ class UDLFStageAModel(nn.Module):
         token_embeds: list[Tensor] = []
         for t in range(steps):
             token_embed = self.embedding(input_ids[:, t])
-            state = self.inject(state, token_embed)
+            state = self.inject(state, token_embed, diagnostics=diagnostics)
             state = self.prior.euler_maruyama(state, token_embed, generator=generator, diagnostics=diagnostics)
             states.append(state)
             token_embeds.append(token_embed)
@@ -95,6 +96,8 @@ class UDLFStageAModel(nn.Module):
     ) -> PosteriorPrefixOutput:
         if input_ids.ndim != 2 or target_ids.ndim != 2:
             raise ValueError("input_ids and target_ids must have shape [batch, time]")
+        if self.posterior_control is None:
+            raise RuntimeError("posterior path requires enable_posterior=True")
         if input_ids.shape != target_ids.shape:
             raise ValueError("input_ids and target_ids must have matching shapes")
         batch, steps = input_ids.shape
@@ -113,7 +116,7 @@ class UDLFStageAModel(nn.Module):
             token_embed = self.embedding(input_ids[:, t])
             target_embed = self.embedding(target_ids[:, t])
 
-            prior_state = self.inject(prior_state, token_embed)
+            prior_state = self.inject(prior_state, token_embed, diagnostics=diagnostics)
             prior_state = self.prior.euler_maruyama(
                 prior_state,
                 token_embed,

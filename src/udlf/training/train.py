@@ -58,13 +58,15 @@ def run_smoke(run_dir: Path, steps: int, sleep_seconds: float) -> None:
 
 
 def _grad_norm(parameters) -> float:
-    total = 0.0
+    total = None
     for parameter in parameters:
         if parameter.grad is None:
             continue
-        value = float(parameter.grad.detach().norm().cpu())
-        total += value * value
-    return math.sqrt(total)
+        value = parameter.grad.detach().float().norm()
+        total = value * value if total is None else total + value * value
+    if total is None:
+        return 0.0
+    return float(total.sqrt().cpu())
 
 
 def _parameter_count(model: nn.Module) -> int:
@@ -80,7 +82,7 @@ def _build_model(train_config: UDLFTrainConfig, device: torch.device) -> tuple[n
         model_config = train_config.mamba_config()
         return MambaLMModel(model_config).to(device), model_config
     model_config = train_config.model_config()
-    return UDLFStageAModel(model_config).to(device), model_config
+    return UDLFStageAModel(model_config, enable_posterior=train_config.mode == "stage-b").to(device), model_config
 
 
 def _clear_cuda(device: torch.device) -> None:
@@ -295,7 +297,7 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
     target_micro_batches = max(1, original_batch * original_accum)
     free_bytes, total_bytes = torch.cuda.mem_get_info(device)
     budget_bytes = int(free_bytes * train_config.vram_fraction)
-    selection_budget_bytes = int(budget_bytes * 0.95)
+    selection_budget_bytes = budget_bytes
     probe_budget_bytes = int(selection_budget_bytes * train_config.auto_batch_probe_budget_fraction)
     upper = max(1, train_config.auto_batch_max)
     best = 0
@@ -530,6 +532,57 @@ def _dynamics_summary(diagnostics: dict[str, list[torch.Tensor]]) -> dict[str, f
         else:
             summary[f"dynamics_{key}"] = float(stacked.mean())
     return summary
+
+
+def _unit_like(tensor: torch.Tensor) -> torch.Tensor:
+    direction = torch.randn_like(tensor)
+    return direction / (direction.norm() + 1e-12)
+
+
+def _stability_diagnostics(
+    model: UDLFStageAModel,
+    batch: torch.Tensor,
+    *,
+    eps: float,
+) -> dict[str, float]:
+    model_was_training = model.training
+    model.eval()
+    sample = batch[:1, :1]
+    token_embed = model.embedding(sample[:, 0]).detach()
+    state = model.init_state(1, device=batch.device, dtype=model.embedding.weight.dtype).detach()
+
+    with torch.no_grad():
+        injection_direction = _unit_like(state)
+        injected = model.inject(state, token_embed)
+        injected_perturbed = model.inject(state + eps * injection_direction, token_embed)
+        injection_gain = (injected_perturbed - injected).norm() / (eps * injection_direction.norm() + 1e-12)
+
+        drift_direction = _unit_like(injected)
+        drift_base, _ = model.prior.drift_and_sigma(injected, token_embed)
+        drift_perturbed, _ = model.prior.drift_and_sigma(injected + eps * drift_direction, token_embed)
+        drift_gain = (drift_perturbed - drift_base).norm() / (eps * drift_direction.norm() + 1e-12)
+
+        base = injected.detach()
+        direction = _unit_like(base)
+        perturbed = base + eps * direction
+        ds = 1.0 / model.config.solver_steps
+        z_base = base
+        z_perturbed = perturbed
+        for _ in range(model.config.solver_steps):
+            drift_base, _ = model.prior.drift_and_sigma(z_base, token_embed)
+            drift_perturbed, _ = model.prior.drift_and_sigma(z_perturbed, token_embed)
+            z_base = z_base + drift_base * ds
+            z_perturbed = z_perturbed + drift_perturbed * ds
+        growth = (z_perturbed - z_base).norm() / (eps * direction.norm() + 1e-12)
+        lyapunov_proxy = torch.log(growth.clamp_min(1e-12))
+
+    if model_was_training:
+        model.train()
+    return {
+        "stability_injection_fd_gain": float(injection_gain.detach().cpu()),
+        "stability_drift_fd_gain": float(drift_gain.detach().cpu()),
+        "stability_ftle_proxy": float(lyapunov_proxy.detach().cpu()),
+    }
 
 
 def _seeded_generator(device: torch.device, seed: int) -> torch.Generator:
@@ -797,6 +850,8 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
 
     set_seed(train_config.seed)
     device = resolve_device(train_config.device)
+    if device.type != "cuda" and not train_config.allow_cpu_training:
+        raise RuntimeError("CPU training is disabled; set allow_cpu_training=true only for tests or tiny debugging")
     logger = setup_logger(run_dir, console_log_mode=train_config.console_log_mode)
     _probe_auto_batch_size(train_config, device, logger)
 
@@ -958,6 +1013,16 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 assert final_state is not None
                 metrics["diffusion_mode"] = model_config.diffusion_mode
                 metrics["state_rms"] = float(final_state.detach().pow(2).mean().sqrt().cpu())
+                if train_config.stability_diagnostics and (
+                    train_config.stability_diagnostic_every == 0 or step % train_config.stability_diagnostic_every == 0
+                ):
+                    metrics.update(
+                        _stability_diagnostics(
+                            model,
+                            batch,
+                            eps=train_config.stability_diagnostic_eps,
+                        )
+                    )
             if dynamics_diagnostics is not None:
                 metrics.update(_dynamics_summary(dynamics_diagnostics))
             if device.type == "cuda":

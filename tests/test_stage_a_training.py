@@ -15,6 +15,7 @@ def test_stage_a_training_writes_metrics(tmp_path):
     config = {
         "mode": "stage-a",
         "device": "cpu",
+        "allow_cpu_training": True,
         "vocab_size": 24,
         "seq_len": 8,
         "batch_size": 2,
@@ -27,6 +28,7 @@ def test_stage_a_training_writes_metrics(tmp_path):
         "readout_heads": 2,
         "solver_steps": 1,
         "diffusion_mode": "ode",
+        "dynamics_diagnostics": True,
         "eval_every": 1,
         "eval_batches": 1,
         "intervention_pair_trials": 2,
@@ -56,6 +58,10 @@ def test_stage_a_training_writes_metrics(tmp_path):
     assert "dynamics_sigma_min" in rows[-1]
     assert "dynamics_sigma_max" in rows[-1]
     assert "dynamics_jump_rms" in rows[-1]
+    assert "dynamics_injection_relative_jump" in rows[-1]
+    assert "dynamics_injection_alpha_entropy" in rows[-1]
+    assert "dynamics_injection_gate_high_saturation" in rows[-1]
+    assert "dynamics_injection_state_cosine" in rows[-1]
 
 
 def test_stage_a_training_resumes_from_checkpoint(tmp_path):
@@ -63,6 +69,7 @@ def test_stage_a_training_resumes_from_checkpoint(tmp_path):
     base_config = {
         "mode": "stage-a",
         "device": "cpu",
+        "allow_cpu_training": True,
         "vocab_size": 24,
         "seq_len": 8,
         "batch_size": 2,
@@ -93,6 +100,7 @@ def test_stage_a_multisample_prior_writes_path_metrics(tmp_path):
     config = {
         "mode": "stage-a",
         "device": "cpu",
+        "allow_cpu_training": True,
         "vocab_size": 24,
         "seq_len": 8,
         "batch_size": 2,
@@ -120,12 +128,46 @@ def test_stage_a_multisample_prior_writes_path_metrics(tmp_path):
     assert "prior_path_logprob_gap" in rows[-1]
 
 
+def test_stage_a_stability_diagnostics_are_opt_in(tmp_path):
+    run_dir = tmp_path / "stability"
+    config = {
+        "mode": "stage-a",
+        "device": "cpu",
+        "allow_cpu_training": True,
+        "vocab_size": 24,
+        "seq_len": 8,
+        "batch_size": 2,
+        "steps": 1,
+        "latent_slots": 4,
+        "latent_dim": 16,
+        "embed_dim": 16,
+        "ff_multiplier": 2,
+        "latent_heads": 4,
+        "readout_heads": 2,
+        "solver_steps": 1,
+        "diffusion_mode": "ode",
+        "dynamics_diagnostics": True,
+        "stability_diagnostics": True,
+        "stability_diagnostic_every": 1,
+        "async_checkpoint": False,
+        "eval_every": 0,
+    }
+
+    run_stage_a(config=config, run_dir=run_dir)
+
+    rows = [json.loads(line) for line in (run_dir / "metrics.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert "stability_injection_fd_gain" in rows[-1]
+    assert "stability_drift_fd_gain" in rows[-1]
+    assert "stability_ftle_proxy" in rows[-1]
+
+
 def test_stage_b_training_writes_posterior_metrics_without_stage_a_flag(tmp_path):
     run_dir = tmp_path / "stage_b"
     config = {
         "mode": "stage-b",
         "architecture": "udlf",
         "device": "cpu",
+        "allow_cpu_training": True,
         "vocab_size": 24,
         "seq_len": 8,
         "batch_size": 2,
@@ -164,6 +206,7 @@ def test_stage_a_training_refuses_accidental_run_overwrite(tmp_path):
     config = {
         "mode": "stage-a",
         "device": "cpu",
+        "allow_cpu_training": True,
         "vocab_size": 24,
         "seq_len": 8,
         "batch_size": 2,
@@ -240,12 +283,41 @@ def test_train_config_rejects_invalid_architecture():
         raise AssertionError("expected invalid architecture to fail")
 
 
+def test_cpu_training_requires_explicit_override(tmp_path):
+    config = {
+        "mode": "stage-a",
+        "device": "cpu",
+        "vocab_size": 24,
+        "seq_len": 8,
+        "batch_size": 2,
+        "steps": 1,
+        "latent_slots": 4,
+        "latent_dim": 16,
+        "embed_dim": 16,
+        "ff_multiplier": 2,
+        "latent_heads": 4,
+        "readout_heads": 2,
+        "solver_steps": 1,
+        "diffusion_mode": "ode",
+        "async_checkpoint": False,
+        "eval_every": 0,
+    }
+
+    try:
+        run_stage_a(config=config, run_dir=tmp_path / "cpu_guard")
+    except RuntimeError as exc:
+        assert "CPU training is disabled" in str(exc)
+    else:
+        raise AssertionError("expected CPU training to require explicit override")
+
+
 def test_mamba_training_writes_metrics(tmp_path):
     run_dir = tmp_path / "mamba"
     config = {
         "mode": "stage-a",
         "architecture": "mamba",
         "device": "cpu",
+        "allow_cpu_training": True,
         "vocab_size": 48,
         "seq_len": 8,
         "batch_size": 2,

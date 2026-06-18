@@ -17,7 +17,8 @@ class UDLFTrainConfig:
 
     seed: int = 123
     noise_seed: int | None = None
-    device: str = "auto"
+    device: str = "cuda"
+    allow_cpu_training: bool = False
     amp: bool = True
     compile_model: bool = False
 
@@ -37,7 +38,7 @@ class UDLFTrainConfig:
     auto_batch_max: int = 128
     vram_fraction: float = 0.90
     auto_batch_predict_safety: float = 1.35
-    auto_batch_probe_budget_fraction: float = 0.95
+    auto_batch_probe_budget_fraction: float = 1.0
     auto_batch_max_probe_increment: int = 8
     auto_adjust_grad_accum: bool = True
     learning_rate: float = 1e-3
@@ -64,7 +65,10 @@ class UDLFTrainConfig:
     console_log_mode: str = "progress"
     eval_every: int = 0
     eval_batches: int = 4
-    dynamics_diagnostics: bool = True
+    dynamics_diagnostics: bool = False
+    stability_diagnostics: bool = False
+    stability_diagnostic_every: int = 0
+    stability_diagnostic_eps: float = 1e-4
     intervention_shift_tokens: int = 1
     intervention_pair_trials: int = 4
     intervention_perturb_std: float = 0.05
@@ -129,6 +133,10 @@ class UDLFTrainConfig:
             raise ValueError("seq_len must be >= 2")
         if self.log_every < 1:
             raise ValueError("log_every must be >= 1")
+        if self.stability_diagnostic_every < 0:
+            raise ValueError("stability_diagnostic_every must be >= 0")
+        if self.stability_diagnostic_eps <= 0:
+            raise ValueError("stability_diagnostic_eps must be positive")
         if self.console_log_mode not in {"progress", "quiet"}:
             raise ValueError("console_log_mode must be 'progress' or 'quiet'")
         if self.mode not in {"stage-a", "stage-b"}:

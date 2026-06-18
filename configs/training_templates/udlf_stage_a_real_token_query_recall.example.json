@@ -1,7 +1,7 @@
 {
   "mode": "stage-a",
   "run_dir": "runs/udlf_real_token_query_recall",
-  "device": "auto",
+  "device": "cuda",
   "data_path": "<LOCAL_SAVED_TOKEN_DATASET>",
   "data_task": "real_query_recall",
   "train_split": "train",

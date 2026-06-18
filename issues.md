@@ -292,36 +292,6 @@ Exit criteria:
   ablation run starts; otherwise throughput and selected batch are not valid
   UDLF evidence.
 
-### Full v0.6 architecture still lacks dynamical diagnostics
-
-Status: active.
-
-The model/training surface now includes Stage A multi-sample prior training and
-Stage B controlled posterior training, but the diagnostic surface is still not
-fully faithful to v0.6. The missing pieces are not cosmetic: they are needed to
-distinguish real persistent-field dynamics from injection/readout shortcuts and
-from numerical artifacts.
-
-Resolution plan:
-
-1. Add injection diagnostics: relative jump magnitude, write-gate saturation,
-   allocation entropy, and injection-state cosine.
-2. Add local Jacobian-vector or power-iteration diagnostics for the injection
-   map and prior drift.
-3. Add finite-time Lyapunov diagnostic as an opt-in diagnostic mode, not as a
-   default training cost.
-4. Keep Stage B large-scale runs blocked until Stage A throughput and
-   diagnostics are clean.
-
-Exit criteria:
-
-- Diagnostic mode emits the required v0.6 stability fields without changing
-  normal training behavior.
-- The fields are covered by a focused smoke test.
-- Any report claiming v0.6 architecture behavior distinguishes implemented
-  mechanisms from still-missing diagnostics.
-
-
 ## Resolved
 
 ### Stage A training harness missing checkpoint and intervention infrastructure
@@ -367,3 +337,16 @@ Direct LAN binding was dropped because SSH-launched child processes were not a
 stable service boundary and exposed 9543 unnecessarily. The final service binds
 remote `127.0.0.1:9543`, and `scripts/remote_workspace.ps1` accesses it through
 an SSH local tunnel. Health and a minimal GPU shell job passed.
+
+### Full v0.6 diagnostics needed CUDA validation
+
+Resolved on 2026-06-19.
+
+The model/training surface now includes Stage A multi-sample prior training,
+Stage B controlled posterior training, injection diagnostics, and opt-in
+finite-difference stability diagnostics. A remote CUDA Stage B diagnostic
+short run under the isolated UDLF workspace emitted injection jump, relative
+jump, allocation entropy, write-gate saturation, injection-state cosine,
+`stability_injection_fd_gain`, `stability_drift_fd_gain`, and
+`stability_ftle_proxy`. Normal LLM-scale templates keep both diagnostics
+disabled by default.

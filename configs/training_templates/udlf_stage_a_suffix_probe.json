@@ -1,7 +1,7 @@
 {
   "mode": "stage-a",
   "run_dir": "runs/udlf_synthetic_suffix_probe",
-  "device": "auto",
+  "device": "cuda",
   "vocab_size": 64,
   "seq_len": 32,
   "synthetic_suffix_loss_only": true,

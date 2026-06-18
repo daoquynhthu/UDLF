@@ -98,7 +98,7 @@ def test_explicit_state_carry_matches_single_prefix_in_ode_mode():
 
 def test_posterior_prefix_keeps_prior_and_posterior_states_separate():
     torch.manual_seed(7)
-    model = UDLFStageAModel(small_config(diffusion_mode="ode"))
+    model = UDLFStageAModel(small_config(diffusion_mode="ode"), enable_posterior=True)
     input_ids = torch.tensor([[3, 1, 4, 1]])
     targets = torch.tensor([[1, 4, 1, 5]])
 

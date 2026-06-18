@@ -470,11 +470,14 @@ Completed:
   posterior control, discrete control-energy KL, posterior dropout, and
   double-track prior-state propagation.
 - Local smoke config for Stage B.
+- Injection diagnostics for actual state jump, relative jump, allocation
+  entropy, write-gate saturation, and injection-state cosine.
+- Opt-in finite-difference stability diagnostics for injection gain, prior
+  drift gain, and an FTLE proxy.
 
 Remaining:
 
-- Jacobian and Lyapunov diagnostics.
-- Injection jump/gate/attention entropy diagnostics.
+- Validate the new diagnostic fields on the isolated remote CUDA path.
 - Explicit filtering-posterior ablation as a separately labeled regime.
 - Large-scale Stage B is intentionally not scheduled yet.
 
@@ -514,6 +517,12 @@ Immediate performance gate before any 3000-step remote ablation:
   `grad_accum_steps` when the selected micro-batch grows.
 - Keep `dynamics_diagnostics=false` for LLM scale training unless a diagnostic
   run explicitly enables it.
+- Keep `stability_diagnostics=false` for normal LLM scale training; enable it
+  only for diagnostic short runs because it performs extra finite-difference
+  model passes.
+- Treat CPU as a test-only escape hatch. Real training configs must use CUDA
+  and the trainer rejects non-CUDA devices unless `allow_cpu_training=true` is
+  set explicitly.
 - Confirm short-run UDLF and Mamba throughput from `metrics.jsonl`, not from a
   one-step eval/checkpoint-heavy smoke run.
 - Do not restart the 3000-step ablation until this gate passes.

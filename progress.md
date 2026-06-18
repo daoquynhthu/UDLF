@@ -359,3 +359,23 @@ This file records concise action summaries only. Detailed planning belongs in
   discrete control-energy KL, and posterior/prior gap metrics.
 - Added a local Stage B smoke config and tests covering posterior prefix
   shapes, multi-sample prior metrics, and Stage B posterior metrics.
+- Made CUDA the default training device and disabled CPU training unless
+  `allow_cpu_training=true` is explicitly set for tests or tiny debugging.
+- Disabled dynamics diagnostics by default for normal LLM-scale training.
+- Added opt-in injection and finite-difference stability diagnostics covering
+  state jump, write gates, allocation entropy, injection-state cosine,
+  injection gain, prior drift gain, and an FTLE proxy.
+- Reduced Stage A optimizer overhead by constructing posterior-control
+  parameters only when `mode="stage-b"` enables the posterior path.
+- Optimized gradient-norm accounting to avoid repeated scalar CPU transfers.
+- Changed 4090 auto-batch accounting to use available CUDA memory times
+  `vram_fraction`; remote templates now set that fraction to `0.95` without an
+  additional hidden probe discount.
+- Synced the updated code to the isolated remote UDLF repo and ran Stage B CUDA
+  diagnostic short job `0a276dc10d5f45dcbd8231fe3d073597` in
+  `L:\UDLF_REMOTE\runs\udlf_stage_b_diag_short_cuda`. It succeeded with
+  `tokens_per_second=34.614`, `cuda_memory_reserved_mb=30.0`, and the expected
+  injection/stability diagnostic fields present in `metrics.jsonl`. The remote
+  4090 still had unrelated non-UDLF Python processes occupying most of the
+  used memory, so this run is only a code-path/metrics smoke, not throughput
+  evidence.

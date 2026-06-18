@@ -1,10 +1,10 @@
 {
-  "description": "Small CPU Stage A training smoke on a repeating-pattern synthetic task.",
+  "description": "Small CUDA Stage A training smoke on a repeating-pattern synthetic task.",
   "parameters": {
     "mode": "stage-a",
     "run_dir": "runs/udlf_stage_a_local_smoke",
     "seed": 123,
-    "device": "cpu",
+    "device": "cuda",
     "vocab_size": 32,
     "seq_len": 12,
     "batch_size": 4,

@@ -1,7 +1,7 @@
 {
   "mode": "stage-a",
   "run_dir": "runs/udlf_query_recall_probe",
-  "device": "auto",
+  "device": "cuda",
   "synthetic_task": "query_recall",
   "vocab_size": 96,
   "seq_len": 36,

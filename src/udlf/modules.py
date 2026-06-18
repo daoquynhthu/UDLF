@@ -32,7 +32,7 @@ class ObservationInjection(nn.Module):
         self.gate = nn.Linear(d + config.embed_dim, d)
         self.out_norm = RMSNorm(d, config.rms_eps)
 
-    def forward(self, state: Tensor, token_embed: Tensor) -> Tensor:
+    def forward(self, state: Tensor, token_embed: Tensor, diagnostics: dict[str, list[Tensor]] | None = None) -> Tensor:
         # state: [B, M, d], token_embed: [B, de]
         normalized = self.norm(state)
         q = self.q(normalized)
@@ -42,7 +42,23 @@ class ObservationInjection(nn.Module):
         token_broadcast = token_embed.unsqueeze(1).expand(-1, state.shape[1], -1)
         eta = torch.sigmoid(self.gate(torch.cat([normalized, token_broadcast], dim=-1)))
         updated = state + alpha.unsqueeze(-1) * eta * candidate
-        return self.out_norm(updated)
+        output = self.out_norm(updated)
+        if diagnostics is not None:
+            jump = output - state
+            entropy_scale = math.log(alpha.shape[-1]) if alpha.shape[-1] > 1 else 1.0
+            state_rms = state.detach().pow(2).mean().sqrt()
+            diagnostics.setdefault("injection_jump_rms", []).append(jump.detach().pow(2).mean().sqrt())
+            diagnostics.setdefault("injection_relative_jump", []).append(jump.detach().pow(2).mean().sqrt() / (state_rms + 1e-8))
+            diagnostics.setdefault("injection_alpha_entropy", []).append(
+                (-(alpha.detach() * alpha.detach().clamp_min(1e-12).log()).sum(dim=-1) / entropy_scale).mean()
+            )
+            diagnostics.setdefault("injection_gate_mean", []).append(eta.detach().mean())
+            diagnostics.setdefault("injection_gate_low_saturation", []).append((eta.detach() < 0.05).float().mean())
+            diagnostics.setdefault("injection_gate_high_saturation", []).append((eta.detach() > 0.95).float().mean())
+            diagnostics.setdefault("injection_state_cosine", []).append(
+                F.cosine_similarity(state.detach().flatten(start_dim=1), output.detach().flatten(start_dim=1), dim=-1).mean()
+            )
+        return output
 
 
 class LatentInteractionCore(nn.Module):
