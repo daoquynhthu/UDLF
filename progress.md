@@ -141,3 +141,11 @@ This file records concise action summaries only. Detailed planning belongs in
   and `723`. Both passed the core gate across all seeds. Fixed K=4 gave much
   stronger zero/swapped/shifted deltas and consistently positive attenuation
   deltas, while fixed K=1 was substantially faster but weaker.
+- Ran a real saved-token confirmation on the local saved FineWeb subset using
+  fixed diffusion K=4 for 100 CUDA steps. Training was stable: loss fell from
+  `18.83` at step 10 to `9.70` at step 100, eval loss was `9.634`, peak CUDA
+  allocation was about `2095 MB`, and checkpoints/metrics were written.
+- The real-token intervention result should not be overclaimed: zero-state was
+  worse by `+0.558` loss, but swapped/shifted/perturbed states were near-neutral
+  or slightly better. The ordered query-recall gate remains the evidence for
+  state causality; real-token runs currently verify training stability only.

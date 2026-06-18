@@ -302,6 +302,9 @@ Completed:
   query-recall seeds.
 - Extended the fixed-diffusion K=1 vs K=4 comparison to three query-recall
   seeds.
+- Ran a short real saved-token fixed K=4 confirmation on the local FineWeb
+  subset. It verified training stability, checkpointing, and metrics on real
+  token data, but did not establish language-data state causality.
 
 Next:
 
@@ -309,8 +312,9 @@ Next:
   perturbation robustness, but do not claim attenuation robustness yet.
 - Compare fixed K=4 and state-dependent K=4 as default candidates using runtime,
   core gate margins, and robustness deltas.
-- Run one small K=4 confirmation matrix on real saved-token data before any
-  remote scale-up.
+- Design a real-token diagnostic that has a meaningful state intervention
+  target; plain next-token language data currently does not produce a clean
+  swapped/shifted intervention signal.
 
 ## Phase 5: Remote 4090 Smoke and Scale-Up
 

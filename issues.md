@@ -76,9 +76,14 @@ Resolution direction:
 - Fixed diffusion shows the same K=4-over-K=1 pattern across seeds `721-723`:
   K=4 is slower but gives stronger intervention margins and more consistent
   attenuation deltas.
+- The short real-token fixed K=4 run verified stability but not causal state use
+  on language data: zero-state was worse, while swapped/shifted/perturbed states
+  were near-neutral or slightly helpful.
 - Do not use attenuation as a blocking robustness gate until a structured
   attenuation probe is defined; current attenuation deltas are too close to
   zero and inconsistent.
+- Add a real-token diagnostic with a known state target before using language
+  intervention metrics as evidence for or against the architecture.
 
 
 ## Resolved
