@@ -3,11 +3,31 @@
 This file tracks only repeated problems, active blockers, or major risks that
 materially affect execution. Fast, one-off fixes should not be recorded here.
 
+Active issues are not passive notes. Every active issue must have:
+
+- the concrete blocker or risk;
+- why it blocks or constrains the plan;
+- a resolution plan with ordered next actions;
+- exit criteria that make the issue closable;
+- a current owner context, which is normally this workspace unless stated
+  otherwise.
+
+If an issue does not need planned resolution, it does not belong in this file.
+
 ## Active
 
 ### Stage A robustness gate is not passing yet
 
 Status: open.
+
+Blocker classification:
+
+- This is not blocking fixed K=4 remote smoke, because core state causality now
+  passes on both synthetic query recall and real-token query recall.
+- It is blocking any claim that Stage A has solved robust latent-state use under
+  off-manifold perturbations.
+- It is blocking promotion from smoke/diagnostic runs to longer scale-up runs
+  that are meant to validate stochastic robustness rather than infrastructure.
 
 The Stage A training harness now has real-data loading, CUDA execution,
 segmented carry, checkpoint/resume, metrics, and intervention evaluation. The
@@ -55,6 +75,8 @@ Impact:
 - The local trainer can be used for controlled experiments.
 - Remote scale-up should still wait for Phase 4 ablations, but the blocker is
   no longer core state causality.
+- Remote fixed K=4 smoke is allowed only as an infrastructure and core-gate
+  validation run. It must not be described as resolving robustness.
 
 Resolution direction:
 
@@ -90,6 +112,40 @@ Resolution direction:
   zero and inconsistent.
 - Keep robustness open, but do not block remote smoke on it; remote smoke should
   validate infrastructure and fixed K=4 stability, not claim robustness.
+
+Resolution plan:
+
+1. Freeze fixed K=4 as the current smoke/default candidate and stop changing
+   the default unless a later ablation clearly beats it on both core gate and
+   robustness metrics.
+2. Run the fixed K=4 remote real-token query-recall smoke once private remote
+   config exists. Treat the result as infrastructure validation plus core-gate
+   confirmation only.
+3. Define a structured robustness suite before any longer remote scale-up:
+   attenuation must be replaced or supplemented with interventions that remain
+   on or near the learned state manifold.
+4. Add a small local robustness experiment that compares current random
+   perturbation, attenuation, inverted state, and at least one structured
+   perturbation on the same fixed K=4 checkpoints.
+5. Only after the structured suite is implemented, decide whether the blocker
+   is a model weakness, an evaluation artifact, or a scale-dependent effect.
+
+Immediate next actions:
+
+- Do not expand this issue with more raw observations unless they change the
+  decision.
+- Add a planned Phase 4 subtask for structured robustness diagnostics.
+- Keep Phase 5 remote smoke scoped to fixed K=4 real-token query recall.
+
+Exit criteria:
+
+- A documented robustness gate exists with thresholds, target interventions,
+  and rationale.
+- Fixed K=4 or a replacement default passes that gate on at least three seeds,
+  or the project explicitly downgrades robustness from a Stage A acceptance
+  requirement.
+- `plan.md` no longer depends on unresolved robustness before any long-running
+  scale-up that claims stochastic latent robustness.
 
 
 ## Resolved

@@ -22,9 +22,9 @@ The imported remote workflow is documented in `doc/REMOTE_4090_OPERATIONS.md`.
 The operational scripts are intentionally preserved close to their source form
 so prior workflow behavior remains auditable.
 
-Important caveat: the main remote scripts are UDLF-oriented, but the current
-training entrypoint is only a smoke runner. Do not launch a real UDLF training
-run until the stage A model implementation and a real UDLF config exist.
+Important caveat: remote smoke is now defined for fixed K=4 real-token
+query-recall only. Treat it as infrastructure and gate validation, not as a
+long training recipe.
 
 Create private machine config from the example:
 

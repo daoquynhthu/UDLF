@@ -171,3 +171,11 @@ This file records concise action summaries only. Detailed planning belongs in
 - Added `configs/training_templates/udlf_remote_real_token_query_recall_smoke.example.json`
   as the remote smoke template for fixed K=4 real-token query recall. It keeps
   the remote saved-token dataset path as a private placeholder.
+- Added `scripts/prepare_remote_smoke_config.py` to materialize a private
+  `.local.json` remote smoke config from the tracked template and refuse
+  unresolved placeholders.
+- Updated `.gitignore` so generated config files under `configs/**` ending in
+  `.local.json` stay out of git.
+- Reworked `issues.md` so active issues are planned blockers with resolution
+  actions, immediate next steps, and explicit exit criteria instead of passive
+  records.

@@ -4,9 +4,9 @@ This document defines the current UDLF remote 4090 workflow. It covers reusable
 remote operations only: configuration, SSH execution, code sync, status
 inspection, log polling, STOP-file shutdown, and detached process launch.
 
-It does not define a validated UDLF training recipe yet. The current
-`udlf.training.train` entrypoint is a smoke runner for validating workflow
-plumbing only.
+The current validated remote smoke candidate is fixed-diffusion K=4 real-token
+query recall. It is a smoke recipe for validating remote sync, launch, logs,
+metrics, checkpoints, and the core state gate; it is not a long-run recipe.
 
 ## Private Configuration
 
@@ -173,5 +173,32 @@ Example:
   -- --config configs\training_templates\udlf_smoke.json
 ```
 
-This command is only a framework until `udlf.training.train` and a real UDLF
-training config exist.
+## Fixed K=4 Real-Token Query-Recall Smoke
+
+Create a private launch config from the tracked template. Do not commit the
+generated `.local.json` file:
+
+```powershell
+python scripts\prepare_remote_smoke_config.py `
+  --data-path "<REMOTE_SAVED_TOKEN_DATASET>"
+```
+
+Then sync code and launch the detached run:
+
+```powershell
+.\scripts\sync_to_remote.ps1
+.\scripts\launch_train_detached.ps1 `
+  -RunName udlf_remote_real_token_query_recall_smoke `
+  -Module udlf.training.train `
+  -- --config configs\training_templates\udlf_remote_real_token_query_recall_smoke.local.json
+```
+
+Inspect the run:
+
+```powershell
+.\scripts\inspect_remote_training.ps1 -RunName udlf_remote_real_token_query_recall_smoke
+.\scripts\watch_remote.ps1 -RunName udlf_remote_real_token_query_recall_smoke -Follow:$false
+```
+
+The tracked example keeps `data_path` as a placeholder. Use only private config
+or environment-specific generated config for real remote paths.

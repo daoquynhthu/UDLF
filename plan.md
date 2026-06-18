@@ -37,6 +37,9 @@ Out of scope until explicitly promoted:
 - Update `progress.md` after concrete actions with short factual summaries.
 - Update `issues.md` only for repeated problems, current blockers, or risks that
   materially affect execution.
+- Treat every active `issues.md` entry as a planned blocker: it must include
+  impact, ordered resolution actions, immediate next actions, and exit
+  criteria. If an entry does not need planned resolution, remove or resolve it.
 - Do not commit private remote configuration, host names, credentials, run
   outputs, checkpoints, or datasets.
 - Keep the UDLF workspace fully isolated from unrelated remote workflows.
@@ -317,6 +320,11 @@ Next:
   private data path configuration only.
 - Run remote sync and fixed K=4 real-token query-recall smoke once private
   remote dataset path configuration is available.
+- Use `scripts/prepare_remote_smoke_config.py` to generate the private remote
+  smoke config; never commit the generated `.local.json`.
+- Add a structured robustness-diagnostic subtask for fixed K=4 before any
+  longer remote scale-up claims robustness. This must turn the active
+  robustness issue into a closable gate rather than a running observation log.
 - Keep plain next-token language intervention metrics out of the core
   state-causality gate unless a meaningful target is defined.
 
@@ -384,6 +392,8 @@ Acceptance criteria:
 
 ## Current Priority
 
-Start Phase 4 ablations locally: compare ODE, fixed diffusion, and
-state-dependent diffusion on the query-recall gate, then vary solver steps `K`
-before considering remote scale-up.
+Complete the Phase 5 fixed K=4 remote real-token query-recall smoke as soon as
+private remote config exists, while keeping it scoped to infrastructure and
+core-gate validation. In parallel, define the Phase 4 structured robustness
+diagnostic needed to resolve the active robustness blocker before longer
+scale-up claims.

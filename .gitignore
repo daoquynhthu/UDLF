@@ -1,5 +1,6 @@
 # Local machine configuration
 configs/workspace.local.json
+configs/**/*.local.json
 
 # Python
 __pycache__/
