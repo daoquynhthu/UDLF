@@ -160,6 +160,48 @@ def test_train_config_rejects_invalid_console_log_mode():
         raise AssertionError("expected invalid console_log_mode to fail")
 
 
+def test_train_config_rejects_invalid_architecture():
+    try:
+        train_config_from_dict({"mode": "stage-a", "architecture": "transformer"})
+    except ValueError as exc:
+        assert "architecture" in str(exc)
+    else:
+        raise AssertionError("expected invalid architecture to fail")
+
+
+def test_mamba_training_writes_metrics(tmp_path):
+    run_dir = tmp_path / "mamba"
+    config = {
+        "mode": "stage-a",
+        "architecture": "mamba",
+        "device": "cpu",
+        "vocab_size": 48,
+        "seq_len": 8,
+        "batch_size": 2,
+        "steps": 2,
+        "llm_dim": 24,
+        "llm_layers": 2,
+        "mamba_d_state": 4,
+        "mamba_expand": 2,
+        "mamba_conv_kernel": 3,
+        "learning_rate": 0.001,
+        "eval_every": 1,
+        "eval_batches": 1,
+        "eval_interventions": False,
+        "async_checkpoint": False,
+        "console_log_mode": "quiet",
+    }
+
+    run_stage_a(config=config, run_dir=run_dir)
+
+    rows = [json.loads(line) for line in (run_dir / "metrics.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert rows[-1]["architecture"] == "mamba"
+    assert rows[-1]["parameter_count"] > 0
+    assert "eval_loss_lm" in rows[-1]
+    assert "state_rms" not in rows[-1]
+    assert "intervention_mixed_delta" not in rows[-1]
+
+
 def test_token_dataset_from_disk_samples_batches(tmp_path):
     dataset_path = tmp_path / "tokens"
     DatasetDict(

@@ -66,6 +66,8 @@ class UDLFTrainConfig:
     resume: str = ""
     strict_resume: bool = True
     allow_run_overwrite: bool = False
+    architecture: str = "udlf"
+    eval_interventions: bool = True
 
     vocab_size: int = 64
     latent_slots: int = 8
@@ -81,6 +83,13 @@ class UDLFTrainConfig:
     sigma_max: float = 0.02
     diffusion_mode: str = "ode"
     fixed_sigma: float = 0.01
+    llm_dim: int = 512
+    llm_layers: int = 12
+    mamba_d_state: int = 16
+    mamba_expand: int = 2
+    mamba_conv_kernel: int = 4
+    mamba_dt_rank: int = 0
+    tie_embeddings: bool = True
 
     sleep_seconds: float = 0.0
 
@@ -97,6 +106,8 @@ class UDLFTrainConfig:
             raise ValueError("log_every must be >= 1")
         if self.console_log_mode not in {"progress", "quiet"}:
             raise ValueError("console_log_mode must be 'progress' or 'quiet'")
+        if self.architecture not in {"udlf", "mamba"}:
+            raise ValueError("architecture must be 'udlf' or 'mamba'")
         if self.stop_check_every < 1:
             raise ValueError("stop_check_every must be >= 1")
         if self.segment_len_min < 0 or self.segment_len_max < 0:
@@ -111,6 +122,12 @@ class UDLFTrainConfig:
             raise ValueError("intervention_shift_tokens must be >= 1")
         if not 0.0 <= self.intervention_mix_alpha <= 1.0:
             raise ValueError("intervention_mix_alpha must be between 0 and 1")
+        if self.llm_dim <= 0 or self.llm_layers <= 0:
+            raise ValueError("llm_dim and llm_layers must be positive")
+        if self.mamba_d_state <= 0 or self.mamba_expand <= 0 or self.mamba_conv_kernel <= 0:
+            raise ValueError("mamba_d_state, mamba_expand, and mamba_conv_kernel must be positive")
+        if self.mamba_dt_rank < 0:
+            raise ValueError("mamba_dt_rank must be >= 0")
 
     def model_config(self) -> UDLFModelConfig:
         return UDLFModelConfig(
@@ -128,6 +145,20 @@ class UDLFTrainConfig:
             sigma_max=self.sigma_max,
             diffusion_mode=self.diffusion_mode,  # type: ignore[arg-type]
             fixed_sigma=self.fixed_sigma,
+        )
+
+    def mamba_config(self):
+        from udlf.llm import MambaLMConfig
+
+        return MambaLMConfig(
+            vocab_size=self.vocab_size,
+            d_model=self.llm_dim,
+            n_layers=self.llm_layers,
+            d_state=self.mamba_d_state,
+            expand=self.mamba_expand,
+            conv_kernel=self.mamba_conv_kernel,
+            dt_rank=self.mamba_dt_rank,
+            tie_embeddings=self.tie_embeddings,
         )
 
     def to_dict(self) -> dict[str, Any]:

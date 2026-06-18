@@ -16,6 +16,44 @@ If an issue does not need planned resolution, it does not belong in this file.
 
 ## Active
 
+### 64M FineWeb-Edu ablation has not run yet
+
+Status: open.
+
+Blocker classification:
+
+- This supersedes the small state-intervention diagnostics as the main
+  architecture decision gate.
+- It blocks claims about UDLF versus Mamba on language modeling quality,
+  throughput, and stability.
+
+Evidence:
+
+- The local dataset exists at `E:/NAIME_DATA/datasets/fineweb_edu_1b_ctx1024`
+  with `train`, `validation`, and tokenized `input_ids` rows of length `1025`.
+- The first framework pass supports `architecture="udlf"` and
+  `architecture="mamba"`.
+- Parameter calibration gives roughly matched 64M models: UDLF ~62.3M and
+  Mamba ~63.7M.
+
+Resolution plan:
+
+1. Run a one-step CUDA sanity check for each 64M config to catch OOM or config
+   errors.
+2. If both pass, launch the 3000-step UDLF and Mamba jobs with quiet console
+   logging.
+3. Track step, train/eval loss, perplexity, throughput, CUDA memory, checkpoint
+   status, and failures.
+4. Summarize the first complete or failed ablation in
+   `doc/fineweb_edu_64m_ablation.md`.
+
+Exit criteria:
+
+- Both runs either complete 3000 steps or fail with recorded failure
+  checkpoints/logs.
+- The comparison table is updated from actual metrics, not config intent.
+- Any OOM or runtime bottleneck has a concrete follow-up plan.
+
 ### Stage A robustness gate is not passing yet
 
 Status: open.

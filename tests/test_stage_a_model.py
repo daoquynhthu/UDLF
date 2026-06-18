@@ -3,6 +3,7 @@ from __future__ import annotations
 import torch
 
 from udlf.config import UDLFModelConfig
+from udlf.llm import MambaLMConfig, MambaLMModel
 from udlf.model import UDLFStageAModel
 
 
@@ -93,3 +94,17 @@ def test_explicit_state_carry_matches_single_prefix_in_ode_mode():
     segmented_logits = torch.cat([first_logits, second_logits], dim=1)
 
     assert torch.allclose(full_logits, segmented_logits)
+
+
+def test_mamba_lm_forward_shapes_and_loss():
+    torch.manual_seed(7)
+    model = MambaLMModel(MambaLMConfig(vocab_size=37, d_model=24, n_layers=2, d_state=4, expand=2, conv_kernel=3))
+    input_ids = torch.randint(0, model.config.vocab_size, (2, 9))
+
+    output = model(input_ids)
+
+    assert output.logits.shape == (2, 8, model.config.vocab_size)
+    assert output.final_state is None
+    assert output.loss is not None
+    assert output.loss.ndim == 0
+    assert torch.isfinite(output.loss)

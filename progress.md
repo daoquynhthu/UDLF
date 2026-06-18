@@ -271,3 +271,14 @@ This file records concise action summaries only. Detailed planning belongs in
   negative. This closes the small-diagnostic loop: the next phase should stop
   optimizing these probes and move to the planned 64M FineWeb-Edu ablation with
   a full LLM UDLF implementation and a standard Mamba baseline.
+- Added the first full FineWeb-Edu 64M ablation framework. The trainer now
+  supports `architecture="udlf"` and `architecture="mamba"`, records parameter
+  count, skips state interventions for non-UDLF models, and keeps compact logs.
+  Added a pure PyTorch standard Mamba/S6 baseline because `mamba_ssm`,
+  `causal_conv1d`, and `triton` are not installed locally.
+- Added 3000-step FineWeb-Edu templates:
+  `configs/training_templates/udlf_fineweb_edu_64m_3000.json` (~62.3M params)
+  and `configs/training_templates/mamba_fineweb_edu_64m_3000.json` (~63.7M
+  params). Dataset target is `E:/NAIME_DATA/datasets/fineweb_edu_1b_ctx1024`.
+- Added `doc/fineweb_edu_64m_ablation.md` and tests for Mamba forward/training
+  integration.

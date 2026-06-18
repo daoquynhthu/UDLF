@@ -10,8 +10,10 @@ from pathlib import Path
 from typing import Any
 
 import torch
+from torch import nn
 import torch.nn.functional as F
 
+from udlf.llm import MambaLMModel
 from udlf.model import UDLFStageAModel
 from udlf.training.checkpoint import AsyncCheckpointWriter, build_checkpoint_payload, load_checkpoint, save_payload
 from udlf.training.config import UDLFTrainConfig, load_raw_config, train_config_from_dict
@@ -61,6 +63,10 @@ def _grad_norm(parameters) -> float:
         value = float(parameter.grad.detach().norm().cpu())
         total += value * value
     return math.sqrt(total)
+
+
+def _parameter_count(model: nn.Module) -> int:
+    return sum(parameter.numel() for parameter in model.parameters())
 
 
 def _autocast_context(device: torch.device, enabled: bool):
@@ -119,6 +125,17 @@ def _forward_segmented(
     return torch.stack(losses).mean(), last_state
 
 
+def _forward_causal_lm(model: nn.Module, batch: torch.Tensor, loss_mask: torch.Tensor | None) -> tuple[torch.Tensor, torch.Tensor | None]:
+    output = model(batch)
+    if output.loss is None:
+        raise ValueError("causal LM model did not return a loss")
+    if loss_mask is None:
+        return output.loss, output.final_state
+    logits = output.logits
+    targets = batch[:, 1:]
+    return _masked_sequence_loss(logits, targets, loss_mask, logits.shape[-1]), output.final_state
+
+
 def _dynamics_summary(diagnostics: dict[str, list[torch.Tensor]]) -> dict[str, float]:
     if not diagnostics:
         return {}
@@ -169,7 +186,7 @@ def _choose_segment_len(config: UDLFTrainConfig, generator: torch.Generator, dev
 
 @torch.no_grad()
 def _evaluate_loss(
-    model: UDLFStageAModel,
+    model: nn.Module,
     dataset,
     *,
     batch_size: int,
@@ -183,14 +200,17 @@ def _evaluate_loss(
     for _ in range(batches):
         batch, loss_mask = _sample_training_batch(dataset, batch_size, device)
         with _autocast_context(device, use_amp):
-            loss, _ = _forward_segmented(
-                model,
-                batch,
-                loss_mask=loss_mask,
-                segment_len=0,
-                generator=generator,
-                detach_state_between_segments=True,
-            )
+            if isinstance(model, UDLFStageAModel):
+                loss, _ = _forward_segmented(
+                    model,
+                    batch,
+                    loss_mask=loss_mask,
+                    segment_len=0,
+                    generator=generator,
+                    detach_state_between_segments=True,
+                )
+            else:
+                loss, _ = _forward_causal_lm(model, batch, loss_mask)
         losses.append(float(loss.detach().cpu()))
     model.train()
     return sum(losses) / max(1, len(losses))
@@ -334,7 +354,7 @@ def _checkpoint_jobs(
     *,
     run_dir: Path,
     models_dir: Path,
-    model: UDLFStageAModel,
+    model: nn.Module,
     optimizer: torch.optim.Optimizer,
     scheduler,
     step: int,
@@ -398,12 +418,17 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
 
     set_seed(train_config.seed)
     device = resolve_device(train_config.device)
-    model_config = train_config.model_config()
-    model = UDLFStageAModel(model_config).to(device)
+    if train_config.architecture == "mamba":
+        model_config = train_config.mamba_config()
+        model = MambaLMModel(model_config).to(device)
+    else:
+        model_config = train_config.model_config()
+        model = UDLFStageAModel(model_config).to(device)
     if train_config.compile_model:
         model = torch.compile(model)  # type: ignore[assignment]
 
     train_dataset, eval_dataset = build_datasets(train_config)
+    parameter_count = _parameter_count(model)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=train_config.learning_rate,
@@ -445,7 +470,9 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
     last_metrics: dict[str, Any] = {"step": start_step}
 
     logger.info(
-        "UDLF stage A training started device=%s amp=%s data=%s resume_step=%d",
+        "UDLF stage A training started architecture=%s params=%d device=%s amp=%s data=%s resume_step=%d",
+        train_config.architecture,
+        parameter_count,
         device,
         train_config.amp and device.type == "cuda",
         "disk" if train_config.data_path else "synthetic",
@@ -468,21 +495,23 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 batch, loss_mask = _sample_training_batch(train_dataset, train_config.batch_size, device)
                 batch_tokens += train_config.batch_size * (batch.shape[1] - 1)
                 with _autocast_context(device, train_config.amp):
-                    micro_loss, final_state = _forward_segmented(
-                        model,
-                        batch,
-                        loss_mask=loss_mask,
-                        segment_len=_choose_segment_len(train_config, noise_generator, device),
-                        generator=noise_generator,
-                        detach_state_between_segments=train_config.detach_state_between_segments,
-                        diagnostics=dynamics_diagnostics,
-                    )
+                    if isinstance(model, UDLFStageAModel):
+                        micro_loss, final_state = _forward_segmented(
+                            model,
+                            batch,
+                            loss_mask=loss_mask,
+                            segment_len=_choose_segment_len(train_config, noise_generator, device),
+                            generator=noise_generator,
+                            detach_state_between_segments=train_config.detach_state_between_segments,
+                            diagnostics=dynamics_diagnostics,
+                        )
+                    else:
+                        micro_loss, final_state = _forward_causal_lm(model, batch, loss_mask)
                     scaled_loss = micro_loss / train_config.grad_accum_steps
                 scaled_loss.backward()
                 loss = micro_loss if loss is None else loss + micro_loss.detach()
 
             assert loss is not None
-            assert final_state is not None
             loss_for_metrics = loss / train_config.grad_accum_steps
             grad_norm = _grad_norm(model.parameters())
             if train_config.grad_clip > 0:
@@ -499,13 +528,17 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 "ppl_lm": float(math.exp(min(current_loss, 20.0))),
                 "tokens_per_second": round((step - start_step) * batch_tokens / elapsed, 3),
                 "grad_norm": grad_norm,
-                "state_rms": float(final_state.detach().pow(2).mean().sqrt().cpu()),
                 "learning_rate": float(optimizer.param_groups[0]["lr"]),
-                "diffusion_mode": model_config.diffusion_mode,
+                "architecture": train_config.architecture,
+                "parameter_count": parameter_count,
                 "device": device.type,
                 "amp": train_config.amp and device.type == "cuda",
                 "stage_a": True,
             }
+            if isinstance(model, UDLFStageAModel):
+                assert final_state is not None
+                metrics["diffusion_mode"] = model_config.diffusion_mode
+                metrics["state_rms"] = float(final_state.detach().pow(2).mean().sqrt().cpu())
             metrics.update(_dynamics_summary(dynamics_diagnostics))
             if device.type == "cuda":
                 metrics["cuda_memory_allocated_mb"] = round(torch.cuda.max_memory_allocated(device) / (1024 * 1024), 3)
@@ -523,21 +556,22 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 )
                 metrics["eval_loss_lm"] = eval_loss
                 metrics["eval_ppl_lm"] = math.exp(min(eval_loss, 20.0))
-                metrics.update(
-                    _evaluate_interventions(
-                        model,
-                        eval_dataset,
-                        batch_size=train_config.batch_size,
-                        device=device,
-                        generator=noise_generator,
-                        use_amp=train_config.amp,
-                        shift_tokens=train_config.intervention_shift_tokens,
-                        pair_trials=train_config.intervention_pair_trials,
-                        perturb_std=train_config.intervention_perturb_std,
-                        perturb_trials=train_config.intervention_perturb_trials,
-                        mix_alpha=train_config.intervention_mix_alpha,
+                if isinstance(model, UDLFStageAModel) and train_config.eval_interventions:
+                    metrics.update(
+                        _evaluate_interventions(
+                            model,
+                            eval_dataset,
+                            batch_size=train_config.batch_size,
+                            device=device,
+                            generator=noise_generator,
+                            use_amp=train_config.amp,
+                            shift_tokens=train_config.intervention_shift_tokens,
+                            pair_trials=train_config.intervention_pair_trials,
+                            perturb_std=train_config.intervention_perturb_std,
+                            perturb_trials=train_config.intervention_perturb_trials,
+                            mix_alpha=train_config.intervention_mix_alpha,
+                        )
                     )
-                )
                 if eval_loss < best_eval:
                     best_eval = eval_loss
                     save_best = True
@@ -546,11 +580,10 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
             last_metrics = metrics
             if step % train_config.log_every == 0:
                 logger.info(
-                    "step=%d loss_lm=%.6f grad_norm=%.6f state_rms=%.6f tok_s=%.1f",
+                    "step=%d loss_lm=%.6f grad_norm=%.6f tok_s=%.1f",
                     step,
                     metrics["loss_lm"],
                     metrics["grad_norm"],
-                    metrics["state_rms"],
                     metrics["tokens_per_second"],
                 )
 

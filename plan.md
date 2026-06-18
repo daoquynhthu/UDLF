@@ -436,11 +436,15 @@ RTX 5060 before any remote 4090 scale-up.
 
 Immediate implementation target:
 
-- Full UDLF LLM model path suitable for causal language modeling.
+- Full UDLF LLM model path suitable for causal language modeling. Status:
+  implemented through `architecture="udlf"`.
 - Standard Mamba-style sequence model baseline with matched tokenizer/data
-  pipeline and roughly 64M trainable parameters.
-- FineWeb-Edu data loader/configs using the local dataset location.
+  pipeline and roughly 64M trainable parameters. Status: implemented as a pure
+  PyTorch Mamba/S6 baseline through `architecture="mamba"`.
+- FineWeb-Edu data loader/configs using the local dataset location. Status:
+  implemented using `E:/NAIME_DATA/datasets/fineweb_edu_1b_ctx1024`.
 - 3000-step ablation configs with compact console logs and file-backed metrics.
+  Status: implemented; needs CUDA sanity checks and launch.
 - Clear comparison table: loss/perplexity, throughput, memory, stability, and
   checkpoint paths.
 
