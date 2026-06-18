@@ -325,3 +325,6 @@ This file records concise action summaries only. Detailed planning belongs in
   workspace service. UDLF passed at 68.1M params with eval loss `10.8625`,
   `42.691` tok/s, and `1818.312` MB CUDA memory. Mamba passed at 63.7M params
   with eval loss `10.9560`, `61.787` tok/s, and `2573.117` MB CUDA memory.
+- Launched the formal remote UDLF 64M FineWeb-Edu 3000-step run as workspace
+  job `fc497e2628a045cbb244e4010d107391`, run directory
+  `L:\UDLF_REMOTE\runs\udlf_fineweb_edu_64m_3000_remote`.
