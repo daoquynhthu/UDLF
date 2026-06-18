@@ -91,9 +91,10 @@ def _forward_segmented(
     segment_len: int,
     generator: torch.Generator,
     detach_state_between_segments: bool,
+    diagnostics: dict[str, list[torch.Tensor]] | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     if segment_len <= 0 or segment_len >= batch.shape[1] - 1:
-        logits, final_state = model.forward_prefix(batch[:, :-1], generator=generator)
+        logits, final_state = model.forward_prefix(batch[:, :-1], generator=generator, diagnostics=diagnostics)
         loss = _masked_sequence_loss(logits, batch[:, 1:], loss_mask, model.config.vocab_size)
         return loss, final_state
 
@@ -105,7 +106,7 @@ def _forward_segmented(
         prefix = batch[:, start:end]
         targets = batch[:, start + 1 : end + 1]
         segment_mask = loss_mask[:, start:end] if loss_mask is not None else None
-        logits, final_state = model.forward_prefix(prefix, state=state, generator=generator)
+        logits, final_state = model.forward_prefix(prefix, state=state, generator=generator, diagnostics=diagnostics)
         last_state = final_state
         state = final_state.detach() if detach_state_between_segments else final_state
         if segment_mask is not None and not bool(segment_mask.any()):
@@ -116,6 +117,41 @@ def _forward_segmented(
     if not losses:
         raise ValueError("loss_mask selected no target tokens in the sequence")
     return torch.stack(losses).mean(), last_state
+
+
+def _dynamics_summary(diagnostics: dict[str, list[torch.Tensor]]) -> dict[str, float]:
+    if not diagnostics:
+        return {}
+    summary: dict[str, float] = {}
+    for key, values in diagnostics.items():
+        if not values:
+            continue
+        stacked = torch.stack([value.float().detach().cpu() for value in values])
+        if key.endswith("_min"):
+            summary[f"dynamics_{key}"] = float(stacked.min())
+        elif key.endswith("_max"):
+            summary[f"dynamics_{key}"] = float(stacked.max())
+        else:
+            summary[f"dynamics_{key}"] = float(stacked.mean())
+    return summary
+
+
+def _seeded_generator(device: torch.device, seed: int) -> torch.Generator:
+    generator = torch.Generator(device=device)
+    generator.manual_seed(int(seed))
+    return generator
+
+
+def _paired_stats(values: list[float]) -> tuple[float, float, float, float]:
+    if not values:
+        raise ValueError("paired stats require at least one value")
+    mean = sum(values) / len(values)
+    if len(values) == 1:
+        return mean, 0.0, mean, mean
+    variance = sum((value - mean) ** 2 for value in values) / (len(values) - 1)
+    sem = math.sqrt(variance / len(values))
+    margin = 1.96 * sem
+    return mean, sem, mean - margin, mean + margin
 
 
 def _choose_segment_len(config: UDLFTrainConfig, generator: torch.Generator, device: torch.device) -> int:
@@ -170,6 +206,7 @@ def _evaluate_interventions(
     generator: torch.Generator,
     use_amp: bool,
     shift_tokens: int,
+    pair_trials: int,
     perturb_std: float,
     perturb_trials: int,
     mix_alpha: float,
@@ -192,54 +229,105 @@ def _evaluate_interventions(
         else:
             shifted_state = torch.zeros_like(state)
 
-        def loss_for(candidate_state: torch.Tensor) -> float:
-            logits, _ = model.forward_prefix(suffix_prefix, state=candidate_state, generator=generator)
+        pair_seeds = torch.randint(
+            0,
+            2_147_483_647,
+            (max(1, pair_trials),),
+            generator=generator,
+            device=device,
+            dtype=torch.long,
+        ).detach().cpu().tolist()
+
+        def loss_for(candidate_state: torch.Tensor, suffix_seed: int) -> float:
+            suffix_generator = _seeded_generator(device, suffix_seed)
+            logits, _ = model.forward_prefix(suffix_prefix, state=candidate_state, generator=suffix_generator)
             loss = _masked_sequence_loss(logits, suffix_targets, suffix_mask, model.config.vocab_size)
             return float(loss.detach().cpu())
 
-        correct = loss_for(state)
-        zero = loss_for(torch.zeros_like(state))
-        swapped = loss_for(state.flip(0))
-        shifted = loss_for(shifted_state)
-        mixed = loss_for(state.lerp(state.flip(0), mix_alpha))
-        temporal_mixed = loss_for(state.lerp(shifted_state, mix_alpha))
-        attenuated = loss_for(state * 0.5)
-        inverted = loss_for(-state)
-        perturb_losses = [
-            loss_for(state + perturb_std * torch.randn_like(state))
-            for _ in range(max(1, perturb_trials))
-        ]
-        perturbed = sum(perturb_losses) / len(perturb_losses)
-        perturb_min = min(perturb_losses)
-        perturb_max = max(perturb_losses)
+        pair_rows: list[dict[str, float]] = []
+        for pair_index, suffix_seed in enumerate(pair_seeds):
+            correct = loss_for(state, suffix_seed)
+            zero = loss_for(torch.zeros_like(state), suffix_seed)
+            swapped = loss_for(state.flip(0), suffix_seed)
+            shifted = loss_for(shifted_state, suffix_seed)
+            mixed = loss_for(state.lerp(state.flip(0), mix_alpha), suffix_seed)
+            temporal_mixed = loss_for(state.lerp(shifted_state, mix_alpha), suffix_seed)
+            attenuated = loss_for(state * 0.5, suffix_seed)
+            inverted = loss_for(-state, suffix_seed)
+            perturb_losses = []
+            for perturb_index in range(max(1, perturb_trials)):
+                perturb_generator = _seeded_generator(device, suffix_seed + 1_000_003 * (perturb_index + 1) + 97 * pair_index)
+                noise = torch.randn(state.shape, device=state.device, dtype=state.dtype, generator=perturb_generator)
+                perturb_losses.append(loss_for(state + perturb_std * noise, suffix_seed))
+            perturbed = sum(perturb_losses) / len(perturb_losses)
+            pair_rows.append(
+                {
+                    "correct": correct,
+                    "zero": zero,
+                    "swapped": swapped,
+                    "shifted": shifted,
+                    "mixed": mixed,
+                    "temporal_mixed": temporal_mixed,
+                    "perturbed": perturbed,
+                    "perturbed_min": min(perturb_losses),
+                    "perturbed_max": max(perturb_losses),
+                    "attenuated": attenuated,
+                    "inverted": inverted,
+                    "zero_delta": zero - correct,
+                    "swapped_delta": swapped - correct,
+                    "shifted_delta": shifted - correct,
+                    "mixed_delta": mixed - correct,
+                    "temporal_mixed_delta": temporal_mixed - correct,
+                    "perturbed_delta": perturbed - correct,
+                    "perturbed_min_delta": min(perturb_losses) - correct,
+                    "perturbed_max_delta": max(perturb_losses) - correct,
+                    "attenuated_delta": attenuated - correct,
+                    "inverted_delta": inverted - correct,
+                }
+            )
     model.train()
-    return {
+    metrics: dict[str, float] = {
+        "intervention_pair_trials": float(len(pair_rows)),
         "intervention_perturb_std": perturb_std,
-        "intervention_perturb_trials": float(len(perturb_losses)),
+        "intervention_perturb_trials": float(max(1, perturb_trials)),
         "intervention_shift_tokens": float(shift_tokens),
         "intervention_mix_alpha": mix_alpha,
-        "intervention_correct_loss": correct,
-        "intervention_zero_loss": zero,
-        "intervention_swapped_loss": swapped,
-        "intervention_shifted_loss": shifted,
-        "intervention_mixed_loss": mixed,
-        "intervention_temporal_mixed_loss": temporal_mixed,
-        "intervention_perturbed_loss": perturbed,
-        "intervention_perturbed_min_loss": perturb_min,
-        "intervention_perturbed_max_loss": perturb_max,
-        "intervention_attenuated_loss": attenuated,
-        "intervention_inverted_loss": inverted,
-        "intervention_zero_delta": zero - correct,
-        "intervention_swapped_delta": swapped - correct,
-        "intervention_shifted_delta": shifted - correct,
-        "intervention_mixed_delta": mixed - correct,
-        "intervention_temporal_mixed_delta": temporal_mixed - correct,
-        "intervention_perturbed_delta": perturbed - correct,
-        "intervention_perturbed_min_delta": perturb_min - correct,
-        "intervention_perturbed_max_delta": perturb_max - correct,
-        "intervention_attenuated_delta": attenuated - correct,
-        "intervention_inverted_delta": inverted - correct,
     }
+    names = [
+        "correct",
+        "zero",
+        "swapped",
+        "shifted",
+        "mixed",
+        "temporal_mixed",
+        "perturbed",
+        "perturbed_min",
+        "perturbed_max",
+        "attenuated",
+        "inverted",
+    ]
+    for name in names:
+        metrics[f"intervention_{name}_loss"] = sum(row[name] for row in pair_rows) / len(pair_rows)
+    delta_names = [
+        "zero_delta",
+        "swapped_delta",
+        "shifted_delta",
+        "mixed_delta",
+        "temporal_mixed_delta",
+        "perturbed_delta",
+        "perturbed_min_delta",
+        "perturbed_max_delta",
+        "attenuated_delta",
+        "inverted_delta",
+    ]
+    for name in delta_names:
+        mean, sem, ci_low, ci_high = _paired_stats([row[name] for row in pair_rows])
+        metric_name = f"intervention_{name}"
+        metrics[metric_name] = mean
+        metrics[f"{metric_name}_sem"] = sem
+        metrics[f"{metric_name}_ci95_low"] = ci_low
+        metrics[f"{metric_name}_ci95_high"] = ci_high
+    return metrics
 
 
 def _checkpoint_jobs(
@@ -375,6 +463,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
             final_state = None
             loss = None
             batch_tokens = 0
+            dynamics_diagnostics: dict[str, list[torch.Tensor]] = {}
             for accum_index in range(train_config.grad_accum_steps):
                 batch, loss_mask = _sample_training_batch(train_dataset, train_config.batch_size, device)
                 batch_tokens += train_config.batch_size * (batch.shape[1] - 1)
@@ -386,6 +475,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                         segment_len=_choose_segment_len(train_config, noise_generator, device),
                         generator=noise_generator,
                         detach_state_between_segments=train_config.detach_state_between_segments,
+                        diagnostics=dynamics_diagnostics,
                     )
                     scaled_loss = micro_loss / train_config.grad_accum_steps
                 scaled_loss.backward()
@@ -416,6 +506,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 "amp": train_config.amp and device.type == "cuda",
                 "stage_a": True,
             }
+            metrics.update(_dynamics_summary(dynamics_diagnostics))
             if device.type == "cuda":
                 metrics["cuda_memory_allocated_mb"] = round(torch.cuda.max_memory_allocated(device) / (1024 * 1024), 3)
 
@@ -441,6 +532,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                         generator=noise_generator,
                         use_amp=train_config.amp,
                         shift_tokens=train_config.intervention_shift_tokens,
+                        pair_trials=train_config.intervention_pair_trials,
                         perturb_std=train_config.intervention_perturb_std,
                         perturb_trials=train_config.intervention_perturb_trials,
                         mix_alpha=train_config.intervention_mix_alpha,

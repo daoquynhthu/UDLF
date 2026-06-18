@@ -46,6 +46,7 @@ class UDLFStageAModel(nn.Module):
         *,
         state: Tensor | None = None,
         generator: torch.Generator | None = None,
+        diagnostics: dict[str, list[Tensor]] | None = None,
     ) -> tuple[Tensor, Tensor]:
         if input_ids.ndim != 2:
             raise ValueError("input_ids must have shape [batch, time]")
@@ -59,7 +60,7 @@ class UDLFStageAModel(nn.Module):
         for t in range(steps):
             token_embed = self.embedding(input_ids[:, t])
             state = self.inject(state, token_embed)
-            state = self.prior.euler_maruyama(state, token_embed, generator=generator)
+            state = self.prior.euler_maruyama(state, token_embed, generator=generator, diagnostics=diagnostics)
             logits.append(self.readout(state, token_embed, self.embedding.weight))
         return torch.stack(logits, dim=1), state
 

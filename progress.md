@@ -200,3 +200,16 @@ This file records concise action summaries only. Detailed planning belongs in
   alphas, so structured robustness is not ready to close.
 - Split structured checking into `structured-batch` and `structured-temporal`
   profiles while keeping `structured` as the strict combined profile.
+- Fixed intervention evaluation to use common random numbers for suffix
+  rollouts. Each candidate state now reuses the same paired Brownian suffix
+  paths; intervention metrics report paired mean, standard error, and 95%
+  confidence interval.
+- Updated the read-only checkpoint evaluator to use the same CRN paired
+  intervention path and expose `--pair-trials`.
+- Re-ran CRN paired evaluation for fixed K=4 real-token query-recall seeds
+  `900`, `901`, and `902` at alpha `0.2`. Batch-mix remained positive with
+  tight intervals; perturbed deltas were negative across all three seeds, and
+  temporal-mix remained inconclusive or negative.
+- Added direct dynamics instrumentation for drift RMS, diffusion sigma min/max,
+  sigma RMS, and jump RMS, closing the prior Phase 3 metrics gap around
+  diffusion saturation visibility.

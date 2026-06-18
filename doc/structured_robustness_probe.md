@@ -63,7 +63,25 @@ python scripts\check_state_probe.py `
 
 All outputs are under ignored `artifacts/structured_interventions/`.
 
-## Results
+The current evaluator uses common random numbers for suffix rollouts: each
+candidate state is evaluated against the same paired Brownian suffix paths and
+reports paired mean, standard error, and 95 percent confidence interval.
+
+Earlier non-CRN mixed-alpha results should be treated as historical only. They
+used different Brownian suffix paths for different candidate states, so small
+deltas were not clean.
+
+## CRN Results at Alpha 0.2
+
+These runs used `--pair-trials 4 --eval-batches 1 --mix-alpha 0.2`.
+
+| seed | batch mixed delta | 95% CI | temporal mixed delta | 95% CI | perturbed delta | 95% CI |
+| --- | --- | --- | --- | --- | --- | --- |
+| 900 | +0.031961 | [+0.031461, +0.032462] | +0.005914 | [+0.005136, +0.006693] | -0.009939 | [-0.010938, -0.008940] |
+| 901 | +0.022900 | [+0.020536, +0.025264] | -0.002878 | [-0.005239, -0.000518] | -0.027785 | [-0.031089, -0.024481] |
+| 902 | +0.009607 | [+0.008504, +0.010709] | +0.000177 | [-0.001709, +0.002062] | -0.007523 | [-0.008165, -0.006881] |
+
+## Legacy Non-CRN Sweep
 
 | seed | alpha | batch mixed delta | temporal mixed delta | perturbed delta | attenuated delta |
 | --- | --- | --- | --- | --- | --- |
@@ -91,14 +109,18 @@ Aggregate by alpha:
 
 ## Current Read
 
+The CRN alpha `0.2` results are now the clean reference. Batch-mix remains
+positive across seeds with tight paired confidence intervals. Perturbed state
+is negative across all three seeds under the same common suffix noise, so it
+should not be used as evidence for robustness. Temporal-mix is not stable:
+seed `901` is significantly negative and seed `902` is indistinguishable from
+zero at this sample size.
+
 The batch mixed-state probe becomes consistently positive from alpha `0.10`
 upward and grows strongly with alpha. At alpha `0.05`, seed `901` is slightly
 negative, so even the batch-mix family should not use a threshold that treats
 near-zero deltas as decisive.
 
-The temporal mixed-state probe is not stable: seed `901` is negative for every
-tested alpha. This is stronger evidence that the current robustness blocker is
-real, not merely an artifact of raw Gaussian perturbation. The next gate should
-not be a blanket nonnegative check over every structured probe; it needs
-per-probe thresholds and a rationale for which structured families are expected
-to be destructive.
+The next gate should not be a blanket nonnegative check over every structured
+probe; it needs per-probe thresholds, CRN paired statistics, and a rationale for
+which structured families are expected to be destructive.

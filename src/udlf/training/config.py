@@ -50,6 +50,7 @@ class UDLFTrainConfig:
     eval_every: int = 0
     eval_batches: int = 4
     intervention_shift_tokens: int = 1
+    intervention_pair_trials: int = 4
     intervention_perturb_std: float = 0.05
     intervention_perturb_trials: int = 8
     intervention_mix_alpha: float = 0.1
@@ -101,6 +102,8 @@ class UDLFTrainConfig:
             raise ValueError("segment_len_min must be <= segment_len_max")
         if self.intervention_perturb_trials < 1:
             raise ValueError("intervention_perturb_trials must be >= 1")
+        if self.intervention_pair_trials < 1:
+            raise ValueError("intervention_pair_trials must be >= 1")
         if self.intervention_shift_tokens < 1:
             raise ValueError("intervention_shift_tokens must be >= 1")
         if not 0.0 <= self.intervention_mix_alpha <= 1.0:

@@ -26,6 +26,7 @@
   "eval_every": 100,
   "eval_batches": 4,
   "intervention_shift_tokens": 1,
+  "intervention_pair_trials": 4,
   "intervention_perturb_std": 0.2,
   "intervention_perturb_trials": 16,
   "intervention_mix_alpha": 0.1,

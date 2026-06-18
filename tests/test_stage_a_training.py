@@ -29,6 +29,7 @@ def test_stage_a_training_writes_metrics(tmp_path):
         "diffusion_mode": "ode",
         "eval_every": 1,
         "eval_batches": 1,
+        "intervention_pair_trials": 2,
         "intervention_mix_alpha": 0.25,
     }
 
@@ -43,10 +44,18 @@ def test_stage_a_training_writes_metrics(tmp_path):
     assert (run_dir / "latest.pt").exists()
     assert (run_dir / "models" / "model_latest.pt").exists()
     assert rows[-1]["intervention_mix_alpha"] == 0.25
+    assert rows[-1]["intervention_pair_trials"] == 2.0
     assert "intervention_mixed_loss" in rows[-1]
     assert "intervention_mixed_delta" in rows[-1]
+    assert "intervention_mixed_delta_sem" in rows[-1]
+    assert "intervention_mixed_delta_ci95_low" in rows[-1]
+    assert "intervention_mixed_delta_ci95_high" in rows[-1]
     assert "intervention_temporal_mixed_loss" in rows[-1]
     assert "intervention_temporal_mixed_delta" in rows[-1]
+    assert "dynamics_drift_rms" in rows[-1]
+    assert "dynamics_sigma_min" in rows[-1]
+    assert "dynamics_sigma_max" in rows[-1]
+    assert "dynamics_jump_rms" in rows[-1]
 
 
 def test_stage_a_training_resumes_from_checkpoint(tmp_path):
@@ -131,6 +140,15 @@ def test_train_config_rejects_invalid_intervention_mix_alpha():
         assert "intervention_mix_alpha" in str(exc)
     else:
         raise AssertionError("expected invalid intervention_mix_alpha to fail")
+
+
+def test_train_config_rejects_invalid_intervention_pair_trials():
+    try:
+        train_config_from_dict({"mode": "stage-a", "intervention_pair_trials": 0})
+    except ValueError as exc:
+        assert "intervention_pair_trials" in str(exc)
+    else:
+        raise AssertionError("expected invalid intervention_pair_trials to fail")
 
 
 def test_token_dataset_from_disk_samples_batches(tmp_path):

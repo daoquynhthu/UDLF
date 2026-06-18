@@ -22,6 +22,7 @@ This summary is generated from local run metrics. It excludes checkpoints and ru
 - K=1 variants are much faster and still usable for cheap screening.
 - Attenuation remains too small and inconsistent to use as a blocking robustness gate.
 - Structured batch-mix and temporal-mix perturbations are tracked for new runs; older summarized runs may not contain them.
+- The summarized ablation runs predate common-random-number intervention evaluation. Core zero/swapped/shifted conclusions are still useful, but small stochastic robustness deltas should be re-measured with CRN paired statistics before being used as evidence of diffusion advantage.
 - Fixed K=4 is the current pragmatic default candidate for real-token confirmation because it is simpler than state-dependent diffusion and has strong synthetic margins.
 
 Detail runs summarized: 28

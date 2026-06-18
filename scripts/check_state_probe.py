@@ -107,11 +107,15 @@ def main(argv: list[str] | None = None) -> int:
         "step": row.get("step"),
         "eval_loss_lm": row.get("eval_loss_lm"),
         "intervention_perturb_std": row.get("intervention_perturb_std"),
+        "intervention_pair_trials": row.get("intervention_pair_trials"),
         "intervention_perturb_trials": row.get("intervention_perturb_trials"),
         "intervention_shift_tokens": row.get("intervention_shift_tokens"),
         "intervention_mix_alpha": row.get("intervention_mix_alpha"),
         "profile": args.profile,
         **{key: row.get(key) for key in thresholds},
+        **{f"{key}_sem": row.get(f"{key}_sem") for key in thresholds},
+        **{f"{key}_ci95_low": row.get(f"{key}_ci95_low") for key in thresholds},
+        **{f"{key}_ci95_high": row.get(f"{key}_ci95_high") for key in thresholds},
         "passed": not failed,
     }
     print(json.dumps(summary, indent=2, sort_keys=True))

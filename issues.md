@@ -65,10 +65,13 @@ Evidence:
 - A clean 4-seed query-recall matrix with 6-token shifted-state intervention
   passed the core gate for seeds `700`, `701`, `702`, and `703`. Perturbation
   robustness is still inconsistent.
-- A 4-seed diffusion ablation on query recall showed positive perturbation
-  deltas for fixed diffusion and state-dependent diffusion across all seeds.
-  ODE also had positive perturbation deltas, but they were much smaller.
-  Attenuation remained inconsistent across modes.
+- A 4-seed pre-CRN diffusion ablation on query recall showed positive
+  perturbation deltas for fixed diffusion and state-dependent diffusion across
+  all seeds. This evidence is now downgraded: those intervention candidates did
+  not share suffix Brownian paths, so small robustness deltas are not clean
+  evidence of diffusion advantage. Large core deltas remain directionally
+  useful, but small perturbation/attenuation/mixed deltas must be re-measured
+  with CRN paired statistics.
 
 Impact:
 
@@ -134,12 +137,15 @@ Immediate next actions:
 
 - Treat the mixed-alpha sweep as evidence that structured perturbation is more
   informative than raw random noise, but not as a complete robustness solution.
-  Batch-mix grows with alpha, but seed `901` is slightly negative at alpha
-  `0.05`. Temporal-mix is worse: seed `901` is negative across all tested
-  alphas.
+  After the CRN fix, batch-mix at alpha `0.2` is positive across seeds
+  `900-902` with tight paired intervals. Perturbed state remains negative on
+  those seeds, and temporal-mix is still not a clean pass.
 - Define per-probe thresholds and decide whether temporal-mix failure is an
   expected property of the task, an evaluation artifact, or evidence of brittle
   temporal state geometry.
+- Re-run any diffusion-mode robustness comparison that depends on small deltas
+  with common random numbers before using it to justify fixed or
+  state-dependent diffusion.
 - Do not expand this issue with more raw observations unless they change the
   decision or close one of the resolution-plan steps.
 - Keep Phase 5 remote smoke scoped to fixed K=4 real-token query recall.
@@ -174,3 +180,16 @@ resume field in a generated temporary config and overwrote that ignored run
 directory's checkpoints. The trainer now refuses to start a fresh run in a run
 directory containing `latest.pt`, `metrics.jsonl`, or `model_latest.pt` unless
 `resume` is set or `allow_run_overwrite=true` is explicit.
+
+### Intervention evaluation used unpaired suffix Brownian paths
+
+Resolved on 2026-06-18.
+
+`_evaluate_interventions` previously advanced the same generator across
+candidate states, so correct, zero, swapped, shifted, mixed, temporal-mixed,
+attenuated, inverted, and perturbed suffix rollouts could use different
+Brownian paths. This did not affect ODE and is unlikely to reverse large
+zero/swapped/inverted effects, but it contaminated small stochastic deltas. The
+evaluator now uses common random numbers for suffix rollouts, multiple paired
+suffix seeds, and reports paired mean, standard error, and 95 percent
+confidence intervals.

@@ -220,6 +220,9 @@ Completed:
 - Replaced single-sample perturbation evaluation with multi-trial perturbation
   averages plus attenuated and inverted-state probes.
 - Added a multi-seed suffix-probe matrix runner with resume support.
+- Added direct dynamics instrumentation for drift RMS, diffusion sigma range,
+  sigma RMS, and jump RMS, so diffusion saturation and jump scale are visible
+  in metrics rather than inferred from loss.
 - Added a query-recall synthetic task that requires binding prior positions to
   values and answering query tokens from persistent state.
 - Ran a clean 4-seed query-recall CUDA matrix with 6-token shifted-state
@@ -315,6 +318,9 @@ Completed:
 - Added a structured mixed-state intervention metric and a read-only checkpoint
   evaluator so existing fixed K=4 checkpoints can be tested without resuming or
   overwriting training runs.
+- Fixed intervention evaluation to use common random numbers for suffix
+  rollouts and to report paired mean, standard error, and confidence intervals.
+  Small robustness deltas from pre-CRN runs are historical only.
 
 Next:
 
@@ -334,7 +340,8 @@ Next:
   for real-token fixed K=4 seeds `900`, `901`, and `902`. Batch-mix mostly
   behaves as expected, but temporal-mix fails on seed `901`; next, define
   per-probe thresholds and inspect whether temporal-mix is a valid destructive
-  intervention for query recall.
+  intervention for query recall. All future small-delta claims must be based on
+  CRN paired statistics.
 - Keep plain next-token language intervention metrics out of the core
   state-causality gate unless a meaningful target is defined.
 

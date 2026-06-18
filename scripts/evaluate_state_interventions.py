@@ -24,7 +24,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", type=Path, default=None, help="Config path. Defaults to <run-dir>/config.json.")
     parser.add_argument("--device", default="", help="Override eval device.")
     parser.add_argument("--batch-size", type=int, default=0, help="Override eval batch size.")
-    parser.add_argument("--eval-batches", type=int, default=1, help="Number of intervention batches to average.")
+    parser.add_argument("--eval-batches", type=int, default=1, help="Must be 1 for paired CI reporting; increase --pair-trials for more suffix noise seeds.")
+    parser.add_argument("--pair-trials", type=int, default=0, help="Override paired suffix noise trials.")
     parser.add_argument("--mix-alpha", type=float, default=None, help="Override intervention_mix_alpha for this eval only.")
     parser.add_argument("--output", type=Path, default=None, help="Optional JSON output path.")
     args = parser.parse_args(argv)
@@ -38,12 +39,16 @@ def main(argv: list[str] | None = None) -> int:
         train_config.device = args.device
     if args.batch_size > 0:
         train_config.batch_size = args.batch_size
+    if args.pair_trials > 0:
+        train_config.intervention_pair_trials = args.pair_trials
     if args.mix_alpha is not None:
         if not 0.0 <= args.mix_alpha <= 1.0:
             raise ValueError("--mix-alpha must be between 0 and 1")
         train_config.intervention_mix_alpha = args.mix_alpha
     if args.eval_batches < 1:
         raise ValueError("--eval-batches must be >= 1")
+    if args.eval_batches != 1:
+        raise ValueError("--eval-batches > 1 is not supported for paired CI reporting; increase --pair-trials instead")
 
     set_seed(train_config.seed)
     device = resolve_device(train_config.device)
@@ -62,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
             generator=generator,
             use_amp=train_config.amp,
             shift_tokens=train_config.intervention_shift_tokens,
+            pair_trials=train_config.intervention_pair_trials,
             perturb_std=train_config.intervention_perturb_std,
             perturb_trials=train_config.intervention_perturb_trials,
             mix_alpha=train_config.intervention_mix_alpha,

@@ -92,7 +92,13 @@ class PriorDynamics(nn.Module):
             )
         return drift, sigma
 
-    def euler_maruyama(self, state: Tensor, token_embed: Tensor, generator: torch.Generator | None = None) -> Tensor:
+    def euler_maruyama(
+        self,
+        state: Tensor,
+        token_embed: Tensor,
+        generator: torch.Generator | None = None,
+        diagnostics: dict[str, list[Tensor]] | None = None,
+    ) -> Tensor:
         ds = 1.0 / self.config.solver_steps
         sqrt_ds = math.sqrt(ds)
         z = state
@@ -102,7 +108,14 @@ class PriorDynamics(nn.Module):
                 noise = torch.zeros_like(z)
             else:
                 noise = torch.randn(z.shape, device=z.device, dtype=z.dtype, generator=generator)
-            z = z + drift * ds + sigma * sqrt_ds * noise
+            jump = drift * ds + sigma * sqrt_ds * noise
+            if diagnostics is not None:
+                diagnostics.setdefault("drift_rms", []).append(drift.detach().pow(2).mean().sqrt())
+                diagnostics.setdefault("sigma_min", []).append(sigma.detach().amin())
+                diagnostics.setdefault("sigma_max", []).append(sigma.detach().amax())
+                diagnostics.setdefault("sigma_rms", []).append(sigma.detach().pow(2).mean().sqrt())
+                diagnostics.setdefault("jump_rms", []).append(jump.detach().pow(2).mean().sqrt())
+            z = z + jump
         return z
 
 
