@@ -247,3 +247,9 @@ This file records concise action summaries only. Detailed planning belongs in
   Perturb and batch-mix were positive with non-crossing CIs, while temporal-mix
   crossed zero. This downgrades state-dependent real-token K=4 from "core
   stable, robustness mixed" to "not yet a replacement default".
+- Ran a targeted seed `906` sigma-control with state-dependent K=4 and
+  `sigma_max=0.01`. The same seed passed the core gate: shifted-state delta
+  improved from `+0.0038` to `+0.1047`, perturb stayed positive
+  (`+0.0097`, CI `[+0.0096,+0.0099]`), and batch-mix stayed positive
+  (`+0.0335`, CI `[+0.0315,+0.0356]`). Added
+  `doc/state_dependent_sigma_control.md`.

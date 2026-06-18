@@ -430,10 +430,12 @@ Acceptance criteria:
 Use the local RTX 5060 for medium-scale validation before remote scale-up. The
 state-dependent K=4 real-token transfer check has exposed a core-gate failure
 on seed `906`, so the immediate priority is no longer more identical
-confirmation seeds. Next work should inspect the state-dependent
-parameterization and run a small controlled variant before promoting it again.
-Remote 4090 work should stay scoped to fixed K=4 smoke/infrastructure until the
-local robustness and core-gate evidence is cleaner.
+confirmation seeds. A targeted control on the same seed passed after lowering
+`sigma_max` from `0.02` to `0.01`, so next work should run a compact
+state-dependent sigma-range matrix on fragile seeds `904` and `906` before
+promoting or rewriting the state-dependent path. Remote 4090 work should stay
+scoped to fixed K=4 smoke/infrastructure until the local robustness and
+core-gate evidence is cleaner.
 
 Console policy for future local/remote experiments:
 

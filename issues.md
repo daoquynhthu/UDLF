@@ -163,6 +163,10 @@ Immediate next actions:
   inspect whether the state-dependent parameterization or regularization is
   underconstrained. A small controlled variant is more informative than simply
   adding seed `907`.
+- A targeted seed `906` control with `sigma_max=0.01` passed the core gate
+  where `sigma_max=0.02` failed. This does not close the issue, but it turns
+  the next resolution step into a sigma-range matrix rather than an immediate
+  architecture rewrite.
 
 Exit criteria:
 
@@ -173,6 +177,8 @@ Exit criteria:
   requirement.
 - Any state-dependent replacement candidate passes both the core gate and the
   CRN robustness gate on real-token seeds, not only on synthetic query recall.
+- The state-dependent sigma range is selected from a documented local matrix,
+  including fragile seeds `904` and `906`, rather than from a single rescue run.
 - `plan.md` no longer depends on unresolved robustness before any long-running
   scale-up that claims stochastic latent robustness.
 
