@@ -29,6 +29,11 @@ class UDLFStageAModel(nn.Module):
         super().__init__()
         self.config = config
         self.embedding = nn.Embedding(config.vocab_size, config.embed_dim)
+        self.output_weight = self.embedding.weight if config.tie_embeddings else nn.Parameter(
+            torch.empty(config.vocab_size, config.embed_dim)
+        )
+        if not config.tie_embeddings:
+            nn.init.normal_(self.output_weight, mean=0.0, std=0.02)
         self.initial_state = nn.Parameter(torch.zeros(config.latent_slots, config.latent_dim))
         self.inject = ObservationInjection(config)
         self.prior = PriorDynamics(config)
@@ -61,7 +66,7 @@ class UDLFStageAModel(nn.Module):
             token_embed = self.embedding(input_ids[:, t])
             state = self.inject(state, token_embed)
             state = self.prior.euler_maruyama(state, token_embed, generator=generator, diagnostics=diagnostics)
-            logits.append(self.readout(state, token_embed, self.embedding.weight))
+            logits.append(self.readout(state, token_embed, self.output_weight))
         return torch.stack(logits, dim=1), state
 
     def forward(

@@ -6,6 +6,7 @@ import argparse
 import json
 import math
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -123,6 +124,56 @@ def _forward_segmented(
     if not losses:
         raise ValueError("loss_mask selected no target tokens in the sequence")
     return torch.stack(losses).mean(), last_state
+
+
+def _segment_slices(batch: torch.Tensor, loss_mask: torch.Tensor | None, segment_len: int) -> list[tuple[int, int]]:
+    ranges = [(start, min(start + segment_len, batch.shape[1] - 1)) for start in range(0, batch.shape[1] - 1, segment_len)]
+    if loss_mask is None:
+        return ranges
+    return [(start, end) for start, end in ranges if bool(loss_mask[:, start:end].any())]
+
+
+def _backward_segmented(
+    model: UDLFStageAModel,
+    batch: torch.Tensor,
+    *,
+    loss_mask: torch.Tensor | None,
+    segment_len: int,
+    generator: torch.Generator,
+    diagnostics: dict[str, list[torch.Tensor]] | None,
+    grad_scale: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    if segment_len <= 0 or segment_len >= batch.shape[1] - 1:
+        loss, final_state = _forward_segmented(
+            model,
+            batch,
+            loss_mask=loss_mask,
+            segment_len=segment_len,
+            generator=generator,
+            detach_state_between_segments=True,
+            diagnostics=diagnostics,
+        )
+        (loss * grad_scale).backward()
+        return loss.detach(), final_state
+
+    ranges = _segment_slices(batch, loss_mask, segment_len)
+    if not ranges:
+        raise ValueError("loss_mask selected no target tokens in the sequence")
+    state = None
+    final_state = None
+    loss_values: list[torch.Tensor] = []
+    segment_scale = grad_scale / len(ranges)
+    for start, end in ranges:
+        prefix = batch[:, start:end]
+        targets = batch[:, start + 1 : end + 1]
+        segment_mask = loss_mask[:, start:end] if loss_mask is not None else None
+        logits, final_state = model.forward_prefix(prefix, state=state, generator=generator, diagnostics=diagnostics)
+        state = final_state.detach()
+        loss = _masked_sequence_loss(logits, targets, segment_mask, model.config.vocab_size)
+        (loss * segment_scale).backward()
+        loss_values.append(loss.detach())
+    assert final_state is not None
+    return torch.stack(loss_values).mean(), final_state.detach()
 
 
 def _forward_causal_lm(model: nn.Module, batch: torch.Tensor, loss_mask: torch.Tensor | None) -> tuple[torch.Tensor, torch.Tensor | None]:
@@ -495,20 +546,35 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 batch, loss_mask = _sample_training_batch(train_dataset, train_config.batch_size, device)
                 batch_tokens += train_config.batch_size * (batch.shape[1] - 1)
                 with _autocast_context(device, train_config.amp):
+                    did_backward = False
+                    segment_len = _choose_segment_len(train_config, noise_generator, device)
                     if isinstance(model, UDLFStageAModel):
-                        micro_loss, final_state = _forward_segmented(
-                            model,
-                            batch,
-                            loss_mask=loss_mask,
-                            segment_len=_choose_segment_len(train_config, noise_generator, device),
-                            generator=noise_generator,
-                            detach_state_between_segments=train_config.detach_state_between_segments,
-                            diagnostics=dynamics_diagnostics,
-                        )
+                        if segment_len > 0 and train_config.detach_state_between_segments:
+                            micro_loss, final_state = _backward_segmented(
+                                model,
+                                batch,
+                                loss_mask=loss_mask,
+                                segment_len=segment_len,
+                                generator=noise_generator,
+                                diagnostics=dynamics_diagnostics,
+                                grad_scale=1.0 / train_config.grad_accum_steps,
+                            )
+                            did_backward = True
+                        else:
+                            micro_loss, final_state = _forward_segmented(
+                                model,
+                                batch,
+                                loss_mask=loss_mask,
+                                segment_len=segment_len,
+                                generator=noise_generator,
+                                detach_state_between_segments=train_config.detach_state_between_segments,
+                                diagnostics=dynamics_diagnostics,
+                            )
                     else:
                         micro_loss, final_state = _forward_causal_lm(model, batch, loss_mask)
-                    scaled_loss = micro_loss / train_config.grad_accum_steps
-                scaled_loss.backward()
+                    if not did_backward:
+                        scaled_loss = micro_loss / train_config.grad_accum_steps
+                        scaled_loss.backward()
                 loss = micro_loss if loss is None else loss + micro_loss.detach()
 
             assert loss is not None
@@ -629,19 +695,32 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
         metric_logger.close()
         metrics_jsonl_to_csv(run_dir / "metrics.jsonl")
         logger.info("UDLF stage A training finished step=%d", step)
-    except BaseException:
+    except BaseException as exc:
         try:
-            failed_payload = build_checkpoint_payload(
-                model=model,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                scaler=None,
-                step=step,
-                config=train_config.to_dict(),
-                metrics=last_metrics,
-                checkpoint_kind="full",
-            )
-            save_payload(run_dir / "failed.pt", failed_payload)
+            try:
+                failed_payload = build_checkpoint_payload(
+                    model=model,
+                    optimizer=optimizer,
+                    scheduler=scheduler,
+                    scaler=None,
+                    step=step,
+                    config=train_config.to_dict(),
+                    metrics=last_metrics,
+                    checkpoint_kind="full",
+                )
+                save_payload(run_dir / "failed.pt", failed_payload)
+            except BaseException as checkpoint_exc:
+                write_json(
+                    run_dir / "failed_error.json",
+                    {
+                        "step": step,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                        "checkpoint_error_type": type(checkpoint_exc).__name__,
+                        "checkpoint_error": str(checkpoint_exc),
+                        "traceback_tail": traceback.format_exc()[-4000:],
+                    },
+                )
         finally:
             if writer is not None:
                 writer.close()

@@ -33,14 +33,17 @@ Evidence:
   with `train`, `validation`, and tokenized `input_ids` rows of length `1025`.
 - The first framework pass supports `architecture="udlf"` and
   `architecture="mamba"`.
-- Parameter calibration gives roughly matched 64M models: UDLF ~62.3M and
-  Mamba ~63.7M.
+- Parameter calibration gives roughly matched 64M models after refitting UDLF
+  to use `latent_dim=512` plus an untied output head: UDLF ~68.1M and Mamba
+  ~63.7M.
+- One-step CUDA sanity passes for both templates, but measured throughput makes
+  the local 3000-step ablation multi-day.
 
 Resolution plan:
 
 1. Run a one-step CUDA sanity check for each 64M config to catch OOM or config
-   errors.
-2. If both pass, launch the 3000-step UDLF and Mamba jobs with quiet console
+   errors. Done.
+2. Launch the 3000-step UDLF and Mamba jobs with quiet console
    logging.
 3. Track step, train/eval loss, perplexity, throughput, CUDA memory, checkpoint
    status, and failures.

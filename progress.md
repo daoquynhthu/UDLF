@@ -277,8 +277,16 @@ This file records concise action summaries only. Detailed planning belongs in
   Added a pure PyTorch standard Mamba/S6 baseline because `mamba_ssm`,
   `causal_conv1d`, and `triton` are not installed locally.
 - Added 3000-step FineWeb-Edu templates:
-  `configs/training_templates/udlf_fineweb_edu_64m_3000.json` (~62.3M params)
+  `configs/training_templates/udlf_fineweb_edu_64m_3000.json` (~68.1M params)
   and `configs/training_templates/mamba_fineweb_edu_64m_3000.json` (~63.7M
   params). Dataset target is `E:/NAIME_DATA/datasets/fineweb_edu_1b_ctx1024`.
 - Added `doc/fineweb_edu_64m_ablation.md` and tests for Mamba forward/training
   integration.
+- Fixed segmented UDLF training so segment losses backprop immediately when
+  `detach_state_between_segments=true`; the previous implementation detached
+  state but retained all segment graphs until the final backward, so it did not
+  actually reduce activation memory.
+- Ran one-step CUDA sanity checks for both 64M templates on the local RTX 5060.
+  UDLF passed at 68.1M params with eval loss `10.8556`, `52.814` tok/s, and
+  `1818.312` MB CUDA memory. Mamba passed at 63.7M params with eval loss
+  `10.9912`, `89.969` tok/s, and `2573.117` MB CUDA memory.

@@ -444,7 +444,7 @@ Immediate implementation target:
 - FineWeb-Edu data loader/configs using the local dataset location. Status:
   implemented using `E:/NAIME_DATA/datasets/fineweb_edu_1b_ctx1024`.
 - 3000-step ablation configs with compact console logs and file-backed metrics.
-  Status: implemented; needs CUDA sanity checks and launch.
+  Status: implemented; CUDA sanity checks passed; needs launch and monitoring.
 - Clear comparison table: loss/perplexity, throughput, memory, stability, and
   checkpoint paths.
 

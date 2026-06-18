@@ -24,6 +24,7 @@ class UDLFModelConfig:
     diffusion_mode: DiffusionMode = "state_dependent"
     fixed_sigma: float = 0.01
     rms_eps: float = 1e-6
+    tie_embeddings: bool = True
 
     def __post_init__(self) -> None:
         if self.vocab_size <= 1:

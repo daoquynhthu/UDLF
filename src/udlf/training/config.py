@@ -145,6 +145,7 @@ class UDLFTrainConfig:
             sigma_max=self.sigma_max,
             diffusion_mode=self.diffusion_mode,  # type: ignore[arg-type]
             fixed_sigma=self.fixed_sigma,
+            tie_embeddings=self.tie_embeddings,
         )
 
     def mamba_config(self):
