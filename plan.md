@@ -174,7 +174,7 @@ Verification:
 
 ## Phase 3: Stage A Training Harness
 
-Status: in progress.
+Status: complete.
 
 Purpose:
 
@@ -219,11 +219,12 @@ Completed:
 - Added a multi-seed suffix-probe matrix runner with resume support.
 - Added a query-recall synthetic task that requires binding prior positions to
   values and answering query tokens from persistent state.
+- Ran a clean 4-seed query-recall CUDA matrix with 6-token shifted-state
+  intervention. Seeds `700`, `701`, `702`, and `703` all passed the core
+  state-causality gate at 400 steps.
 
 Remaining:
 
-- Broaden the query-recall matrix beyond the first two CUDA seeds and define the
-  minimum seed count for Phase 3 completion.
 - Strengthen the repeat-task core state-causality gate if it remains part of
   the acceptance suite: two additional CUDA matrix seeds at 600 steps passed
   zero and swapped-state checks, but one shifted-state delta remained just below
@@ -251,6 +252,7 @@ Verification:
 - Synthetic task metric report.
 - Reproducibility check across at least two seeds for the smallest task using
   `scripts/run_state_probe_matrix.py`.
+- 4-seed query-recall core gate run on local CUDA.
 
 ## Phase 4: Numerical and Architectural Ablations
 
@@ -350,6 +352,6 @@ Acceptance criteria:
 
 ## Current Priority
 
-Push Phase 3 past the state-causality gate locally: improve the controlled task,
-training target, or model path until correct latent state reliably beats
-zero/swapped/misaligned state before starting remote scale-up.
+Start Phase 4 ablations locally: compare ODE, fixed diffusion, and
+state-dependent diffusion on the query-recall gate, then vary solver steps `K`
+before considering remote scale-up.

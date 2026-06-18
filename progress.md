@@ -105,3 +105,10 @@ This file records concise action summaries only. Detailed planning belongs in
   overwrote the ignored seed `703` query-recall checkpoint with a short new run.
   The repository is unaffected, but that run directory is no longer reliable
   for checkpoint continuation.
+- Ran a clean query-recall CUDA matrix with run prefix
+  `runs/udlf_query_recall_shift6_matrix` for seeds `700`, `701`, `702`, and
+  `703` at 400 steps. All four seeds passed `check_state_probe.py --profile
+  core` with 6-token shifted-state intervention.
+- Phase 3 is complete for the core state-causality gate. Robustness remains a
+  separate unresolved gate because perturbation deltas are still near zero or
+  slightly negative for some seeds.

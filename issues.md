@@ -5,14 +5,15 @@ materially affect execution. Fast, one-off fixes should not be recorded here.
 
 ## Active
 
-### Stage A state-causality gate is not passing yet
+### Stage A robustness gate is not passing yet
 
 Status: open.
 
 The Stage A training harness now has real-data loading, CUDA execution,
 segmented carry, checkpoint/resume, metrics, and intervention evaluation. The
-training pipeline itself is usable, but the current exact-memory synthetic probe
-does not yet prove that the model relies on the persistent latent state.
+training pipeline itself is usable, and the ordered query-recall task now passes
+the core state-causality gate across four CUDA seeds. Robustness remains open:
+random perturbation and attenuation are still near-neutral for some seeds.
 
 Evidence:
 
@@ -41,24 +42,24 @@ Evidence:
 - Query recall gives a cleaner core-causality signal than repeat. Seeds `700`
   and `701` passed the core gate at 400 steps, but robustness still did not
   consistently pass because perturbation can remain neutral or slightly helpful.
+- A clean 4-seed query-recall matrix with 6-token shifted-state intervention
+  passed the core gate for seeds `700`, `701`, `702`, and `703`. Perturbation
+  robustness is still inconsistent.
 
 Impact:
 
 - The local trainer can be used for controlled experiments.
-- Remote scale-up should still wait; the current failure is conceptual/training
-  objective related, not an infrastructure blocker.
+- Remote scale-up should still wait for Phase 4 ablations, but the blocker is
+  no longer core state causality.
 
 Resolution direction:
 
 - Add a clearer controlled state-carry task or mask the impossible prefix loss
   so the memory-dependent portion is directly optimized.
-- Keep core causality and robustness as separate gates.
-- Use query recall as the ordered temporal-state gate and run a wider seed
-  matrix before closing Phase 3.
-- Only promote Phase 3 to complete once correct state reliably beats zero,
-  swapped, and time-shifted state across seeds; treat perturbation/attenuation
-  as a robustness gate unless the architecture is changed to make them
-  semantically meaningful destructive interventions.
+- Keep robustness separate from core causality during Phase 4.
+- Treat perturbation/attenuation as robustness diagnostics unless the
+  architecture is changed to make them semantically meaningful destructive
+  interventions.
 
 ### Experiment checkpoints can be overwritten by ad-hoc run config mistakes
 
