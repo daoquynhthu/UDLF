@@ -73,6 +73,9 @@ Resolution direction:
 - State-dependent K=4 improved robustness deltas over K=1 across seeds
   `721-723`, but roughly halves throughput. The next decision is whether fixed
   diffusion shows the same pattern before picking a default.
+- Fixed diffusion shows the same K=4-over-K=1 pattern across seeds `721-723`:
+  K=4 is slower but gives stronger intervention margins and more consistent
+  attenuation deltas.
 - Do not use attenuation as a blocking robustness gate until a structured
   attenuation probe is defined; current attenuation deltas are too close to
   zero and inconsistent.

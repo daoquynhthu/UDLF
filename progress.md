@@ -137,3 +137,7 @@ This file records concise action summaries only. Detailed planning belongs in
   and `723`. Both passed the core gate across all seeds. K=4 produced stronger
   shifted-state and robustness deltas, including consistently positive
   attenuation, at roughly half the throughput of K=1.
+- Ran fixed-diffusion K=1 vs K=4 query-recall ablations for seeds `721`, `722`,
+  and `723`. Both passed the core gate across all seeds. Fixed K=4 gave much
+  stronger zero/swapped/shifted deltas and consistently positive attenuation
+  deltas, while fixed K=1 was substantially faster but weaker.

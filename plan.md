@@ -300,14 +300,17 @@ Completed:
   query-recall seed.
 - Extended the state-dependent K=1 vs K=4 comparison to three additional
   query-recall seeds.
+- Extended the fixed-diffusion K=1 vs K=4 comparison to three query-recall
+  seeds.
 
 Next:
 
-- Carry fixed diffusion into the K=1 vs K=4 comparison.
 - Treat fixed and state-dependent diffusion as stronger candidates for
   perturbation robustness, but do not claim attenuation robustness yet.
-- Decide whether state-dependent K=4's stronger robustness deltas justify its
-  runtime cost over K=1 before any remote scale-up.
+- Compare fixed K=4 and state-dependent K=4 as default candidates using runtime,
+  core gate margins, and robustness deltas.
+- Run one small K=4 confirmation matrix on real saved-token data before any
+  remote scale-up.
 
 ## Phase 5: Remote 4090 Smoke and Scale-Up
 
