@@ -164,3 +164,7 @@ This file records concise action summaries only. Detailed planning belongs in
   eval loss was `7.736` and the core gate passed: zero `+4.726`, swapped
   `+0.139`, shifted `+0.068`, inverted `+0.673`. Robustness still failed:
   perturbation and attenuation deltas were slightly negative.
+- Extended fixed K=4 real-token query recall to seeds `901` and `902` at 600
+  steps. Both passed the core gate. Across seeds `900`, `901`, and `902`, the
+  real-token core gate is now 3/3 pass; robustness still fails on attenuation
+  for at least one seed.

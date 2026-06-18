@@ -82,14 +82,14 @@ Resolution direction:
 - The short real-token fixed K=4 run verified stability but not causal state use
   on language data: zero-state was worse, while swapped/shifted/perturbed states
   were near-neutral or slightly helpful.
-- The new real-token query-recall diagnostic passed the core gate for one seed
-  after 600 steps, but robustness still failed and multi-seed evidence is still
-  missing.
+- The real-token query-recall diagnostic now passes the core gate across seeds
+  `900`, `901`, and `902`, so fixed K=4 is acceptable for remote smoke. The
+  remaining blocker is robustness interpretation, especially attenuation.
 - Do not use attenuation as a blocking robustness gate until a structured
   attenuation probe is defined; current attenuation deltas are too close to
   zero and inconsistent.
-- Extend real-token query-recall to multiple seeds before treating real-token
-  state causality as established.
+- Keep robustness open, but do not block remote smoke on it; remote smoke should
+  validate infrastructure and fixed K=4 stability, not claim robustness.
 
 
 ## Resolved

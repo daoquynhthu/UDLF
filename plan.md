@@ -307,15 +307,14 @@ Completed:
   token data, but did not establish language-data state causality.
 - Added a tracked Phase 4 ablation summary table generated from local run
   metrics.
-- Added a real-token query-recall data task and ran a fixed K=4 confirmation
-  that passed the core gate after 600 steps on one seed.
+- Added a real-token query-recall data task and ran fixed K=4 confirmations
+  that passed the core gate after 600 steps on three seeds.
 
 Next:
 
-- Treat fixed K=4 as the current pragmatic default candidate for local and
-  remote smoke runs unless a later ablation contradicts it.
-- Extend real-token query-recall to multiple seeds before using it as a remote
-  scale-up gate.
+- Treat fixed K=4 as the default candidate for local and remote smoke runs.
+- Prepare a remote smoke config for fixed K=4 real-token query recall, using
+  private data path configuration only.
 - Keep plain next-token language intervention metrics out of the core
   state-causality gate unless a meaningful target is defined.
 
