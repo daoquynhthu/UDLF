@@ -179,3 +179,19 @@ This file records concise action summaries only. Detailed planning belongs in
 - Reworked `issues.md` so active issues are planned blockers with resolution
   actions, immediate next steps, and explicit exit criteria instead of passive
   records.
+- Added `intervention_mixed_delta`, a structured mixed-state intervention that
+  lightly mixes each state with another real state from the same batch.
+- Added `scripts/evaluate_state_interventions.py` for read-only intervention
+  evaluation of existing checkpoints without resuming or overwriting a run.
+- Extended state-probe checking, matrix summaries, and Phase 4 summaries to
+  carry the structured mixed-state metric.
+- Re-evaluated the existing fixed K=4 real-token query-recall checkpoints for
+  seeds `900`, `901`, and `902` with the mixed-state probe. The structured
+  profile passed for all three with mixed deltas `+0.0126`, `+0.0070`, and
+  `+0.0060`. Random perturbation and attenuation remain inconsistent, so the
+  robustness blocker is not closed.
+- Ran the mixed-alpha sweep for `alpha in {0.05, 0.1, 0.2, 0.4}` on the same
+  three checkpoints. All 12 structured checks passed; mean mixed delta rose
+  from `+0.0044` at alpha `0.05` to `+0.5155` at alpha `0.4`.
+- Added `doc/structured_robustness_probe.md` with the structured probe
+  definition, commands, per-seed results, aggregate table, and current read.

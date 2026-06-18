@@ -28,6 +28,7 @@
   "intervention_shift_tokens": 1,
   "intervention_perturb_std": 0.2,
   "intervention_perturb_trials": 16,
+  "intervention_mix_alpha": 0.1,
   "save_every": 100,
   "log_every": 50,
   "async_checkpoint": true,

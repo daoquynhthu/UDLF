@@ -27,6 +27,9 @@ def test_stage_a_training_writes_metrics(tmp_path):
         "readout_heads": 2,
         "solver_steps": 1,
         "diffusion_mode": "ode",
+        "eval_every": 1,
+        "eval_batches": 1,
+        "intervention_mix_alpha": 0.25,
     }
 
     run_stage_a(config=config, run_dir=run_dir)
@@ -39,6 +42,9 @@ def test_stage_a_training_writes_metrics(tmp_path):
     assert (run_dir / "config.json").exists()
     assert (run_dir / "latest.pt").exists()
     assert (run_dir / "models" / "model_latest.pt").exists()
+    assert rows[-1]["intervention_mix_alpha"] == 0.25
+    assert "intervention_mixed_loss" in rows[-1]
+    assert "intervention_mixed_delta" in rows[-1]
 
 
 def test_stage_a_training_resumes_from_checkpoint(tmp_path):
@@ -114,6 +120,15 @@ def test_train_config_accepts_parameters_and_steps_alias():
 
     assert config.max_steps == 7
     assert config.batch_size == 5
+
+
+def test_train_config_rejects_invalid_intervention_mix_alpha():
+    try:
+        train_config_from_dict({"mode": "stage-a", "intervention_mix_alpha": 1.5})
+    except ValueError as exc:
+        assert "intervention_mix_alpha" in str(exc)
+    else:
+        raise AssertionError("expected invalid intervention_mix_alpha to fail")
 
 
 def test_token_dataset_from_disk_samples_batches(tmp_path):

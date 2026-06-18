@@ -14,6 +14,7 @@ METRIC_KEYS = [
     "intervention_zero_delta",
     "intervention_swapped_delta",
     "intervention_shifted_delta",
+    "intervention_mixed_delta",
     "intervention_perturbed_delta",
     "intervention_attenuated_delta",
     "intervention_inverted_delta",
@@ -128,6 +129,12 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def _markdown_table(rows: list[dict[str, Any]]) -> str:
+    def fmt(row: dict[str, Any], key: str, decimals: int = 3) -> str:
+        value = row.get(key)
+        if value is None:
+            return "n/a"
+        return f"{float(value):.{decimals}f}"
+
     headers = [
         "mode",
         "K",
@@ -138,6 +145,7 @@ def _markdown_table(rows: list[dict[str, Any]]) -> str:
         "zero",
         "swap",
         "shift",
+        "mix",
         "perturb",
         "atten",
         "invert",
@@ -152,14 +160,15 @@ def _markdown_table(rows: list[dict[str, Any]]) -> str:
                     str(row["solver_steps"]),
                     str(row["runs"]),
                     str(row["seeds"]),
-                    f"{row.get('mean_eval_loss_lm', 0.0):.3f}",
-                    f"{row.get('mean_tokens_per_second', 0.0):.0f}",
-                    f"{row.get('mean_intervention_zero_delta', 0.0):.3f}",
-                    f"{row.get('mean_intervention_swapped_delta', 0.0):.3f}",
-                    f"{row.get('mean_intervention_shifted_delta', 0.0):.3f}",
-                    f"{row.get('mean_intervention_perturbed_delta', 0.0):.3f}",
-                    f"{row.get('mean_intervention_attenuated_delta', 0.0):.3f}",
-                    f"{row.get('mean_intervention_inverted_delta', 0.0):.3f}",
+                    fmt(row, "mean_eval_loss_lm"),
+                    fmt(row, "mean_tokens_per_second", decimals=0),
+                    fmt(row, "mean_intervention_zero_delta"),
+                    fmt(row, "mean_intervention_swapped_delta"),
+                    fmt(row, "mean_intervention_shifted_delta"),
+                    fmt(row, "mean_intervention_mixed_delta"),
+                    fmt(row, "mean_intervention_perturbed_delta"),
+                    fmt(row, "mean_intervention_attenuated_delta"),
+                    fmt(row, "mean_intervention_inverted_delta"),
                 ]
             )
             + " |"
@@ -185,6 +194,7 @@ def _write_markdown(path: Path, detail_rows: list[dict[str, Any]], summary_rows:
             "- Fixed K=4 and state-dependent K=4 produce stronger intervention margins than K=1 variants.",
             "- K=1 variants are much faster and still usable for cheap screening.",
             "- Attenuation remains too small and inconsistent to use as a blocking robustness gate.",
+            "- Structured mixed-state perturbation is tracked for new runs; older summarized runs may not contain it.",
             "- Fixed K=4 is the current pragmatic default candidate for real-token confirmation because it is simpler than state-dependent diffusion and has strong synthetic margins.",
             "",
             f"Detail runs summarized: {len(detail_rows)}",

@@ -312,6 +312,9 @@ Completed:
   metrics.
 - Added a real-token query-recall data task and ran fixed K=4 confirmations
   that passed the core gate after 600 steps on three seeds.
+- Added a structured mixed-state intervention metric and a read-only checkpoint
+  evaluator so existing fixed K=4 checkpoints can be tested without resuming or
+  overwriting training runs.
 
 Next:
 
@@ -322,9 +325,15 @@ Next:
   remote dataset path configuration is available.
 - Use `scripts/prepare_remote_smoke_config.py` to generate the private remote
   smoke config; never commit the generated `.local.json`.
-- Add a structured robustness-diagnostic subtask for fixed K=4 before any
-  longer remote scale-up claims robustness. This must turn the active
-  robustness issue into a closable gate rather than a running observation log.
+- Run `scripts/evaluate_state_interventions.py` on the existing fixed K=4
+  real-token query-recall checkpoints and check
+  `scripts/check_state_probe.py --profile structured` on new metrics-bearing
+  runs. This is the first concrete structured robustness diagnostic; it does
+  not replace the broader robustness gate yet.
+- The first mixed-alpha sweep over `alpha in {0.05, 0.1, 0.2, 0.4}` is complete
+  for real-token fixed K=4 seeds `900`, `901`, and `902`. Next, define a
+  thresholded structured gate and add at least one more structured intervention
+  family before using robustness as a blocking acceptance criterion.
 - Keep plain next-token language intervention metrics out of the core
   state-causality gate unless a meaningful target is defined.
 

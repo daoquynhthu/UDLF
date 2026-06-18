@@ -27,6 +27,7 @@
     "amp": true,
     "eval_every": 10,
     "eval_batches": 4,
+    "intervention_mix_alpha": 0.1,
     "save_every": 20
   }
 }

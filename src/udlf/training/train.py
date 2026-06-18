@@ -172,6 +172,7 @@ def _evaluate_interventions(
     shift_tokens: int,
     perturb_std: float,
     perturb_trials: int,
+    mix_alpha: float,
 ) -> dict[str, float]:
     model.eval()
     batch_size = max(2, batch_size)
@@ -200,6 +201,7 @@ def _evaluate_interventions(
         zero = loss_for(torch.zeros_like(state))
         swapped = loss_for(state.flip(0))
         shifted = loss_for(shifted_state)
+        mixed = loss_for(state.lerp(state.flip(0), mix_alpha))
         attenuated = loss_for(state * 0.5)
         inverted = loss_for(-state)
         perturb_losses = [
@@ -214,10 +216,12 @@ def _evaluate_interventions(
         "intervention_perturb_std": perturb_std,
         "intervention_perturb_trials": float(len(perturb_losses)),
         "intervention_shift_tokens": float(shift_tokens),
+        "intervention_mix_alpha": mix_alpha,
         "intervention_correct_loss": correct,
         "intervention_zero_loss": zero,
         "intervention_swapped_loss": swapped,
         "intervention_shifted_loss": shifted,
+        "intervention_mixed_loss": mixed,
         "intervention_perturbed_loss": perturbed,
         "intervention_perturbed_min_loss": perturb_min,
         "intervention_perturbed_max_loss": perturb_max,
@@ -226,6 +230,7 @@ def _evaluate_interventions(
         "intervention_zero_delta": zero - correct,
         "intervention_swapped_delta": swapped - correct,
         "intervention_shifted_delta": shifted - correct,
+        "intervention_mixed_delta": mixed - correct,
         "intervention_perturbed_delta": perturbed - correct,
         "intervention_perturbed_min_delta": perturb_min - correct,
         "intervention_perturbed_max_delta": perturb_max - correct,
@@ -435,6 +440,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                         shift_tokens=train_config.intervention_shift_tokens,
                         perturb_std=train_config.intervention_perturb_std,
                         perturb_trials=train_config.intervention_perturb_trials,
+                        mix_alpha=train_config.intervention_mix_alpha,
                     )
                 )
                 if eval_loss < best_eval:

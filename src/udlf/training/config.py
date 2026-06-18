@@ -52,6 +52,7 @@ class UDLFTrainConfig:
     intervention_shift_tokens: int = 1
     intervention_perturb_std: float = 0.05
     intervention_perturb_trials: int = 8
+    intervention_mix_alpha: float = 0.1
     save_every: int = 0
     latest_every: int = 0
     async_checkpoint: bool = True
@@ -102,6 +103,8 @@ class UDLFTrainConfig:
             raise ValueError("intervention_perturb_trials must be >= 1")
         if self.intervention_shift_tokens < 1:
             raise ValueError("intervention_shift_tokens must be >= 1")
+        if not 0.0 <= self.intervention_mix_alpha <= 1.0:
+            raise ValueError("intervention_mix_alpha must be between 0 and 1")
 
     def model_config(self) -> UDLFModelConfig:
         return UDLFModelConfig(

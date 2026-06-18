@@ -132,9 +132,15 @@ Resolution plan:
 
 Immediate next actions:
 
+- Treat the mixed-alpha sweep as evidence that structured perturbation is more
+  informative than raw random noise, but not as a complete robustness solution.
+  Seeds `900`, `901`, and `902` passed the structured profile for
+  `alpha in {0.05, 0.1, 0.2, 0.4}`; random perturbation and attenuation still
+  remain inconsistent.
+- Define thresholds for the mixed-alpha sweep and add at least one more
+  structured intervention family before closing this issue.
 - Do not expand this issue with more raw observations unless they change the
-  decision.
-- Add a planned Phase 4 subtask for structured robustness diagnostics.
+  decision or close one of the resolution-plan steps.
 - Keep Phase 5 remote smoke scoped to fixed K=4 real-token query recall.
 
 Exit criteria:
