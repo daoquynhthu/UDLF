@@ -294,12 +294,17 @@ Completed:
   and state-dependent diffusion at 400 steps.
 - Added generic `--set key=value` config overrides to the matrix runner for
   controlled ablations.
+- Extended the query-recall diffusion ablation to four matched seeds for ODE,
+  fixed diffusion, and state-dependent diffusion.
 
 Next:
 
-- Extend the diffusion ablation to at least four seeds per mode.
-- Run solver-step ablations only after choosing the diffusion modes worth
-  carrying forward.
+- Carry ODE, fixed diffusion, and state-dependent diffusion into solver-step
+  ablations because all three passed the core gate.
+- Treat fixed and state-dependent diffusion as stronger candidates for
+  perturbation robustness, but do not claim attenuation robustness yet.
+- Run solver-step ablations for `K in {1, 2, 4, 8}` on query recall before any
+  remote scale-up.
 
 ## Phase 5: Remote 4090 Smoke and Scale-Up
 

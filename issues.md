@@ -45,6 +45,10 @@ Evidence:
 - A clean 4-seed query-recall matrix with 6-token shifted-state intervention
   passed the core gate for seeds `700`, `701`, `702`, and `703`. Perturbation
   robustness is still inconsistent.
+- A 4-seed diffusion ablation on query recall showed positive perturbation
+  deltas for fixed diffusion and state-dependent diffusion across all seeds.
+  ODE also had positive perturbation deltas, but they were much smaller.
+  Attenuation remained inconsistent across modes.
 
 Impact:
 
@@ -61,8 +65,11 @@ Resolution direction:
 - Compare perturbation, attenuation, and inverted-state deltas by diffusion
   mode. If fixed or state-dependent diffusion consistently improves
   perturbation robustness over ODE, promote that mode to the next ablation.
-- If robustness remains near zero across modes, design a structured robustness
-  probe instead of treating random perturbation as a blocking gate.
+- Carry fixed and state-dependent diffusion into solver-step ablations as
+  robustness candidates.
+- Do not use attenuation as a blocking robustness gate until a structured
+  attenuation probe is defined; current attenuation deltas are too close to
+  zero and inconsistent.
 
 
 ## Resolved

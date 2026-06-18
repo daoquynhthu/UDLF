@@ -121,3 +121,11 @@ This file records concise action summaries only. Detailed planning belongs in
 - Added trainer-side run overwrite protection. Fresh training now refuses to
   start in a run directory with existing artifacts unless `resume` is set or
   `allow_run_overwrite=true` is explicit.
+- Completed a 4-seed query-recall diffusion ablation for seeds `710`, `711`,
+  `712`, and `713` at 400 steps across ODE, fixed diffusion, and
+  state-dependent diffusion.
+- All three diffusion modes passed the core gate for all four seeds.
+- Fixed diffusion and state-dependent diffusion produced consistently positive
+  perturbation deltas across all four seeds; ODE perturbation deltas were also
+  positive but much smaller. Attenuation remained inconsistent and should not be
+  used alone as a robustness gate.
