@@ -168,3 +168,6 @@ This file records concise action summaries only. Detailed planning belongs in
   steps. Both passed the core gate. Across seeds `900`, `901`, and `902`, the
   real-token core gate is now 3/3 pass; robustness still fails on attenuation
   for at least one seed.
+- Added `configs/training_templates/udlf_remote_real_token_query_recall_smoke.example.json`
+  as the remote smoke template for fixed K=4 real-token query recall. It keeps
+  the remote saved-token dataset path as a private placeholder.

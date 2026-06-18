@@ -315,6 +315,8 @@ Next:
 - Treat fixed K=4 as the default candidate for local and remote smoke runs.
 - Prepare a remote smoke config for fixed K=4 real-token query recall, using
   private data path configuration only.
+- Run remote sync and fixed K=4 real-token query-recall smoke once private
+  remote dataset path configuration is available.
 - Keep plain next-token language intervention metrics out of the core
   state-causality gate unless a meaningful target is defined.
 
