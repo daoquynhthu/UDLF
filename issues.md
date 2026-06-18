@@ -38,16 +38,22 @@ Evidence:
   ~63.7M.
 - One-step CUDA sanity passes for both templates, but measured throughput makes
   the local 3000-step ablation multi-day.
+- The isolated remote 4090 workspace service is now installed and verified
+  under `L:\UDLF_REMOTE`; the remaining risk is remote data-path/config
+  correctness for the actual 3000-step launch.
 
 Resolution plan:
 
 1. Run a one-step CUDA sanity check for each 64M config to catch OOM or config
    errors. Done.
-2. Launch the 3000-step UDLF and Mamba jobs with quiet console
-   logging.
-3. Track step, train/eval loss, perplexity, throughput, CUDA memory, checkpoint
+2. Finalize remote FineWeb-Edu data path mapping and remote 64M launch
+   configs without committing private paths.
+3. Run remote compile/import and one-step sanity checks through the HTTPS
+   workspace service.
+4. Launch the 3000-step UDLF and Mamba jobs with quiet console logging.
+5. Track step, train/eval loss, perplexity, throughput, CUDA memory, checkpoint
    status, and failures.
-4. Summarize the first complete or failed ablation in
+6. Summarize the first complete or failed ablation in
    `doc/fineweb_edu_64m_ablation.md`.
 
 Exit criteria:
@@ -272,3 +278,16 @@ zero/swapped/inverted effects, but it contaminated small stochastic deltas. The
 evaluator now uses common random numbers for suffix rollouts, multiple paired
 suffix seeds, and reports paired mean, standard error, and 95 percent
 confidence intervals.
+
+### Isolated remote workspace service was not established
+
+Resolved on 2026-06-18.
+
+UDLF now has a separate remote workspace under `L:\UDLF_REMOTE`, with repo,
+runs, workspace-service state, staging, job database, token, and TLS files kept
+outside the remote NAIME repository. The service reuses only
+`L:\NAIME_REMOTE\envs\.venv312` and is installed as `UDLF Workspace Agent`.
+Direct LAN binding was dropped because SSH-launched child processes were not a
+stable service boundary and exposed 9543 unnecessarily. The final service binds
+remote `127.0.0.1:9543`, and `scripts/remote_workspace.ps1` accesses it through
+an SSH local tunnel. Health and a minimal GPU shell job passed.

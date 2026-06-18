@@ -290,3 +290,28 @@ This file records concise action summaries only. Detailed planning belongs in
   UDLF passed at 68.1M params with eval loss `10.8556`, `52.814` tok/s, and
   `1818.312` MB CUDA memory. Mamba passed at 63.7M params with eval loss
   `10.9912`, `89.969` tok/s, and `2573.117` MB CUDA memory.
+- Created the isolated remote UDLF layout on the RTX 4090 host under
+  `L:\UDLF_REMOTE`, separate from the remote NAIME repository.
+- Reused only the mature remote Python environment
+  `L:\NAIME_REMOTE\envs\.venv312`; UDLF repo, runs, workspace-service state,
+  jobs, staging, token, and TLS files live under `L:\UDLF_REMOTE`.
+- Ported the mature HTTPS workspace service scripts into UDLF and adapted them
+  for UDLF paths, UDLF environment names, port `9543`, compact operations, and
+  native `udlf.training.train` launch.
+- Fixed the workspace agent TLS accept path so malformed handshakes do not
+  terminate the server loop.
+- Changed the UDLF workspace service to bind remote `127.0.0.1:9543` and use a
+  local SSH tunnel instead of exposing the service on the LAN.
+- Installed the service through `scripts/install_remote_workspace_service.ps1`
+  as scheduled task `UDLF Workspace Agent`, using the current user and the
+  remote `.venv312` Python.
+- Verified `scripts/remote_workspace.ps1 health`: root
+  `L:\UDLF_REMOTE`, repo `L:\UDLF_REMOTE\UDLF`, runs
+  `L:\UDLF_REMOTE\runs`.
+- Ran a minimal HTTPS shell job through the service and confirmed the remote
+  RTX 4090 is visible with `24564` MiB total memory.
+- Fixed service restart handling so `manage_remote_workspace_service.ps1`
+  clears both supervisor and agent processes before starting a fresh scheduled
+  task.
+- Fixed current-user service ACL handling so the scheduled task can read the
+  workspace token and TLS key after the service stopped running as SYSTEM.

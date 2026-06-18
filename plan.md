@@ -365,7 +365,7 @@ Next:
 
 ## Phase 5: Remote 4090 Smoke and Scale-Up
 
-Status: pending.
+Status: in progress.
 
 Purpose:
 
@@ -376,10 +376,29 @@ Tasks:
 
 - Configure `configs/workspace.local.json` locally, outside git.
 - Sync code to a disposable remote UDLF path.
+- Install an isolated HTTPS workspace service under `L:\UDLF_REMOTE`, reusing
+  only the NAIME `.venv312` Python environment.
+- Access the HTTPS service through an SSH local tunnel; keep the service bound
+  to remote loopback instead of exposing it on the LAN.
 - Run remote compile/import checks.
 - Run a short remote smoke training.
 - Confirm logs, metrics, checkpoints, and STOP-file shutdown.
 - Only then define longer remote runs.
+
+Completed:
+
+- Created the isolated remote UDLF layout:
+  `L:\UDLF_REMOTE\UDLF`, `L:\UDLF_REMOTE\runs`, and
+  `L:\UDLF_REMOTE\workspace-service`.
+- Synced the local UDLF repository to `L:\UDLF_REMOTE\UDLF`.
+- Rebuilt the mature HTTPS workspace-service workflow for UDLF with
+  `remote_workspace_agent.py`, client, supervisor, train-job wrapper,
+  installer, manager, and local command wrapper.
+- Installed the service as `UDLF Workspace Agent`, bound to remote
+  `127.0.0.1:9543`, accessed locally through an SSH tunnel.
+- Verified `remote_workspace.ps1 health` against the isolated root/repo/runs.
+- Ran a minimal remote shell job through the HTTPS agent and confirmed the RTX
+  4090 is visible.
 
 Acceptance criteria:
 
@@ -430,9 +449,8 @@ Acceptance criteria:
 Stop spending more effort on narrow state-intervention diagnostics as the main
 decision vehicle. They were useful for finding implementation bugs and obvious
 fragility, but they are too small to settle the architecture question. The next
-phase is to implement the full LLM training frame, add a standard Mamba
-baseline, and run 64M-parameter FineWeb-Edu 3000-step ablations on the local
-RTX 5060 before any remote 4090 scale-up.
+phase is to run the already implemented 64M-parameter UDLF versus standard
+Mamba FineWeb-Edu ablation on the isolated remote RTX 4090 workflow.
 
 Immediate implementation target:
 
@@ -444,7 +462,11 @@ Immediate implementation target:
 - FineWeb-Edu data loader/configs using the local dataset location. Status:
   implemented using `E:/NAIME_DATA/datasets/fineweb_edu_1b_ctx1024`.
 - 3000-step ablation configs with compact console logs and file-backed metrics.
-  Status: implemented; CUDA sanity checks passed; needs launch and monitoring.
+  Status: implemented; local one-step CUDA sanity checks passed; remote paths
+  and launch wrappers need final preflight before 3000-step launch.
+- Isolated remote service under `L:\UDLF_REMOTE`, reusing
+  `L:\NAIME_REMOTE\envs\.venv312` only. Status: installed and health/job smoke
+  verified through SSH tunnel.
 - Clear comparison table: loss/perplexity, throughput, memory, stability, and
   checkpoint paths.
 

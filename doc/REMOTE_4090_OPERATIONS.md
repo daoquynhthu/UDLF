@@ -4,6 +4,22 @@ This document defines the current UDLF remote 4090 workflow. It covers reusable
 remote operations only: configuration, SSH execution, code sync, status
 inspection, log polling, STOP-file shutdown, and detached process launch.
 
+Current isolated remote layout:
+
+```text
+Remote root:        L:\UDLF_REMOTE
+Remote repo:        L:\UDLF_REMOTE\UDLF
+Remote runs:        L:\UDLF_REMOTE\runs
+Workspace service:  L:\UDLF_REMOTE\workspace-service
+Python venv:        L:\NAIME_REMOTE\envs\.venv312
+Service port:       9543 through local SSH tunnel only
+```
+
+The UDLF workspace reuses the mature Python environment from NAIME_REMOTE, but
+the repository, run outputs, service database, staging files, token, and TLS
+certificate are under `L:\UDLF_REMOTE`. Do not point UDLF jobs at the remote
+NAIME repository.
+
 The current validated remote smoke candidate is fixed-diffusion K=4 real-token
 query recall. It is a smoke recipe for validating remote sync, launch, logs,
 metrics, checkpoints, and the core state gate; it is not a long-run recipe.
@@ -107,6 +123,49 @@ The sync package includes:
 
 It excludes `.git`, virtual environments, run outputs, artifacts, datasets,
 logs, checkpoints, and zip files.
+
+## HTTPS Workspace Service
+
+Install or refresh the isolated UDLF workspace service:
+
+```powershell
+.\scripts\install_remote_workspace_service.ps1
+```
+
+The installer:
+
+- syncs code unless `-SkipSync` is provided;
+- writes service state under `L:\UDLF_REMOTE\workspace-service`;
+- starts a current-user scheduled task named `UDLF Workspace Agent`;
+- binds the HTTPS agent to remote `127.0.0.1:9543`;
+- updates ignored `configs\workspace.local.json` with the pinned TLS
+  fingerprint and service token.
+
+Because the service binds to remote loopback only, local access uses an SSH
+local forward. `scripts\remote_workspace.ps1` starts the tunnel automatically
+when `remote.workspace_service.host` is `127.0.0.1`.
+
+Health check:
+
+```powershell
+.\scripts\remote_workspace.ps1 health
+```
+
+Expected root paths in the health response:
+
+```text
+root: L:\UDLF_REMOTE
+repo: L:\UDLF_REMOTE\UDLF
+runs: L:\UDLF_REMOTE\runs
+```
+
+Manage the scheduled task:
+
+```powershell
+.\scripts\manage_remote_workspace_service.ps1 status
+.\scripts\manage_remote_workspace_service.ps1 restart
+.\scripts\manage_remote_workspace_service.ps1 logs -Tail 80
+```
 
 ## Inspect Remote State
 
