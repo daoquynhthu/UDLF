@@ -237,3 +237,7 @@ This file records concise action summaries only. Detailed planning belongs in
   `[-0.0106,-0.0047]`).
 - Added `doc/real_token_state_dependent_crn.md` to separate real-token
   state-dependent CRN evidence from the synthetic diffusion ablation.
+- Ran local 5060 state-dependent K=4 real-token seed `905` to 600 steps with
+  quiet console logging. Core gate passed. Batch-mix and temporal-mix were
+  positive with non-crossing CIs, but perturbation remained near zero with CI
+  crossing zero (`+0.0011`, CI `[-0.0017,+0.0040]`).
