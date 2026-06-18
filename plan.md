@@ -427,16 +427,22 @@ Acceptance criteria:
 
 ## Current Priority
 
-Use the local RTX 5060 for medium-scale validation before remote scale-up. The
-state-dependent K=4 real-token transfer check has exposed a core-gate failure
-on seed `906`, so the immediate priority is no longer more identical
-confirmation seeds. The fragile-seed horizon check shows that the 600-step
-`sigma_max=0.01` rescue does not survive to 1200 steps on seed `906`, so
-state-dependent K=4 is no longer a default candidate. Next work should inspect
-the temporal-state gate and compare against fixed K=4 at the same longer
-horizon before any state-dependent promotion. Remote 4090 work should stay
-scoped to fixed K=4 smoke/infrastructure until the local robustness and
-core-gate evidence is cleaner.
+Stop spending more effort on narrow state-intervention diagnostics as the main
+decision vehicle. They were useful for finding implementation bugs and obvious
+fragility, but they are too small to settle the architecture question. The next
+phase is to implement the full LLM training frame, add a standard Mamba
+baseline, and run 64M-parameter FineWeb-Edu 3000-step ablations on the local
+RTX 5060 before any remote 4090 scale-up.
+
+Immediate implementation target:
+
+- Full UDLF LLM model path suitable for causal language modeling.
+- Standard Mamba-style sequence model baseline with matched tokenizer/data
+  pipeline and roughly 64M trainable parameters.
+- FineWeb-Edu data loader/configs using the local dataset location.
+- 3000-step ablation configs with compact console logs and file-backed metrics.
+- Clear comparison table: loss/perplexity, throughput, memory, stability, and
+  checkpoint paths.
 
 Console policy for future local/remote experiments:
 

@@ -266,3 +266,8 @@ This file records concise action summaries only. Detailed planning belongs in
   (`shifted=-0.0344`). Added `doc/state_dependent_horizon_check.csv`.
 - Changed `scripts/run_state_probe_matrix.py` to default to compact one-line
   console output; full JSON printing now requires `--print-json`.
+- Ran a fixed K=4 seed `906` 1200-step same-seed horizon control. It passed the
+  core gate (`shifted=+0.0577`) while perturb and temporal-mix remained
+  negative. This closes the small-diagnostic loop: the next phase should stop
+  optimizing these probes and move to the planned 64M FineWeb-Edu ablation with
+  a full LLM UDLF implementation and a standard Mamba baseline.
