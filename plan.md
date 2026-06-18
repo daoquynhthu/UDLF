@@ -43,6 +43,10 @@ Out of scope until explicitly promoted:
 - Do not commit private remote configuration, host names, credentials, run
   outputs, checkpoints, or datasets.
 - Keep the UDLF workspace fully isolated from unrelated remote workflows.
+- Keep console output compact during experiments. Full metrics and evaluator
+  JSON must go to files under ignored artifacts or run directories; terminal
+  output should be progress summaries only unless full JSON is explicitly
+  requested for debugging.
 
 ## Phase 0: Workspace Foundation
 
@@ -321,10 +325,19 @@ Completed:
 - Fixed intervention evaluation to use common random numbers for suffix
   rollouts and to report paired mean, standard error, and confidence intervals.
   Small robustness deltas from pre-CRN runs are historical only.
+- Re-evaluated the matched ODE, fixed-diffusion, and state-dependent diffusion
+  query-recall checkpoints for seeds `710-713` with CRN paired intervention
+  metrics. State-dependent diffusion is now the stronger robustness candidate
+  in this matched set; fixed diffusion remains the simpler smoke/default
+  candidate.
 
 Next:
 
-- Treat fixed K=4 as the default candidate for local and remote smoke runs.
+- Treat fixed K=4 as the default candidate for local and eventual remote smoke
+  runs, but do not treat it as the best robustness candidate.
+- Continue local 5060 experiments before remote scale-up: run a medium
+  state-dependent K=4 CRN confirmation and compare it against fixed K=4 on
+  real-token query recall.
 - Prepare a remote smoke config for fixed K=4 real-token query recall, using
   private data path configuration only.
 - Run remote sync and fixed K=4 real-token query-recall smoke once private
@@ -409,8 +422,8 @@ Acceptance criteria:
 
 ## Current Priority
 
-Complete the Phase 5 fixed K=4 remote real-token query-recall smoke as soon as
-private remote config exists, while keeping it scoped to infrastructure and
-core-gate validation. In parallel, define the Phase 4 structured robustness
-diagnostic needed to resolve the active robustness blocker before longer
-scale-up claims.
+Use the local RTX 5060 for medium-scale validation before remote scale-up. The
+immediate priority is to extend state-dependent K=4 real-token query-recall
+confirmation beyond seed `903`, with CRN paired intervention metrics and
+dynamics instrumentation. Remote 4090 work should wait until the local framework
+and robustness gates are cleaner.

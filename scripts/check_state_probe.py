@@ -54,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--perturbed", type=float, default=DEFAULT_THRESHOLDS["intervention_perturbed_delta"])
     parser.add_argument("--attenuated", type=float, default=DEFAULT_THRESHOLDS["intervention_attenuated_delta"])
     parser.add_argument("--inverted", type=float, default=DEFAULT_THRESHOLDS["intervention_inverted_delta"])
+    parser.add_argument("--print-json", action="store_true", help="Print the full check summary JSON. Default prints one compact line.")
     args = parser.parse_args(argv)
 
     row = _last_eval_row(args.metrics)
@@ -118,7 +119,14 @@ def main(argv: list[str] | None = None) -> int:
         **{f"{key}_ci95_high": row.get(f"{key}_ci95_high") for key in thresholds},
         "passed": not failed,
     }
-    print(json.dumps(summary, indent=2, sort_keys=True))
+    if args.print_json:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        checked = ",".join(thresholds)
+        print(
+            f"state check profile={args.profile} step={summary.get('step')} "
+            f"passed={str(not failed).lower()} checked={checked}"
+        )
     if failed:
         print("FAILED: " + "; ".join(failed))
         return 1

@@ -146,6 +146,11 @@ Immediate next actions:
 - Re-run any diffusion-mode robustness comparison that depends on small deltas
   with common random numbers before using it to justify fixed or
   state-dependent diffusion.
+- The first CRN re-evaluation of matched query-recall checkpoints changes the
+  robustness read: state-dependent diffusion has the strongest mean
+  perturbation delta and stays positive across seeds `710-713`. Fixed diffusion
+  remains useful and simpler, but it is no longer the strongest robustness
+  candidate from the current evidence.
 - Do not expand this issue with more raw observations unless they change the
   decision or close one of the resolution-plan steps.
 - Keep Phase 5 remote smoke scoped to fixed K=4 real-token query recall.

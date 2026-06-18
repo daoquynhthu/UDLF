@@ -213,3 +213,20 @@ This file records concise action summaries only. Detailed planning belongs in
 - Added direct dynamics instrumentation for drift RMS, diffusion sigma min/max,
   sigma RMS, and jump RMS, closing the prior Phase 3 metrics gap around
   diffusion saturation visibility.
+- Re-evaluated the matched ODE, fixed-diffusion, and state-dependent diffusion
+  query-recall checkpoints for seeds `710-713` with CRN paired metrics.
+  State-dependent diffusion had the strongest mean perturbation delta
+  (`+0.0363`) and stayed positive on every seed; fixed diffusion averaged
+  `+0.0311` but had one near-zero seed; ODE stayed near zero (`+0.0010`).
+- Added `scripts/summarize_crn_interventions.py` and tracked CRN summary files
+  under `doc/phase4_crn_intervention_*`.
+- Reduced console output for long-running experiments: training now supports
+  `console_log_mode` (`progress` or `quiet`), and checkpoint intervention
+  evaluation prints only a compact one-line summary unless `--print-json` is
+  explicitly requested.
+- `scripts/check_state_probe.py` now also defaults to a compact one-line
+  result; full JSON output requires `--print-json`.
+- Ran a medium local 5060 real-token query-recall state-dependent K=4 training
+  run for seed `903` to 600 steps. CRN eval at alpha `0.2` passed the core
+  gate and produced perturb `+0.0309`, batch-mix `+0.0181`, and temporal-mix
+  `+0.0048`.

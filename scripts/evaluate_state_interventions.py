@@ -28,6 +28,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pair-trials", type=int, default=0, help="Override paired suffix noise trials.")
     parser.add_argument("--mix-alpha", type=float, default=None, help="Override intervention_mix_alpha for this eval only.")
     parser.add_argument("--output", type=Path, default=None, help="Optional JSON output path.")
+    parser.add_argument("--print-json", action="store_true", help="Print the full JSON result to stdout. Default prints one compact progress line.")
     args = parser.parse_args(argv)
 
     run_dir = args.run_dir
@@ -89,9 +90,21 @@ def main(argv: list[str] | None = None) -> int:
         if values:
             metrics[key] = sum(values) / len(values)
     metrics["eval_loss_lm"] = metrics.get("intervention_correct_loss")
-    print(json.dumps(metrics, indent=2, sort_keys=True))
     if args.output:
         _write_json(args.output, metrics)
+    if args.print_json:
+        print(json.dumps(metrics, indent=2, sort_keys=True))
+    else:
+        output_text = f" output={args.output}" if args.output else ""
+        print(
+            "CRN eval "
+            f"run={run_dir.name} step={step} "
+            f"eval={metrics.get('eval_loss_lm', float('nan')):.4f} "
+            f"perturb={metrics.get('intervention_perturbed_delta', float('nan')):+.4f} "
+            f"mix={metrics.get('intervention_mixed_delta', float('nan')):+.4f} "
+            f"temporal={metrics.get('intervention_temporal_mixed_delta', float('nan')):+.4f}"
+            f"{output_text}"
+        )
     return 0
 
 

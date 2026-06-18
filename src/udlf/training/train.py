@@ -428,7 +428,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
 
     noise_seed = train_config.noise_seed if train_config.noise_seed is not None else train_config.seed + 2
     noise_generator = make_noise_generator(device, noise_seed)
-    logger = setup_logger(run_dir)
+    logger = setup_logger(run_dir, console_log_mode=train_config.console_log_mode)
     metric_logger = JsonlMetricLogger(
         run_dir / "metrics.jsonl",
         flush_every=train_config.metrics_flush_every,

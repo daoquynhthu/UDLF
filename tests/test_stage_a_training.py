@@ -151,6 +151,15 @@ def test_train_config_rejects_invalid_intervention_pair_trials():
         raise AssertionError("expected invalid intervention_pair_trials to fail")
 
 
+def test_train_config_rejects_invalid_console_log_mode():
+    try:
+        train_config_from_dict({"mode": "stage-a", "console_log_mode": "verbose"})
+    except ValueError as exc:
+        assert "console_log_mode" in str(exc)
+    else:
+        raise AssertionError("expected invalid console_log_mode to fail")
+
+
 def test_token_dataset_from_disk_samples_batches(tmp_path):
     dataset_path = tmp_path / "tokens"
     DatasetDict(

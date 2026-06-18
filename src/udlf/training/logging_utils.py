@@ -11,12 +11,14 @@ from pathlib import Path
 from typing import Any
 
 
-def setup_logger(run_dir: Path) -> logging.Logger:
+def setup_logger(run_dir: Path, *, console_log_mode: str = "progress") -> logging.Logger:
     run_dir.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger("udlf.train")
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     logger.propagate = False
+    if console_log_mode not in {"progress", "quiet"}:
+        raise ValueError("console_log_mode must be 'progress' or 'quiet'")
 
     file_formatter = logging.Formatter(
         fmt="%(asctime)s | %(levelname)s | %(message)s",
@@ -27,9 +29,10 @@ def setup_logger(run_dir: Path) -> logging.Logger:
         datefmt="%H:%M:%S",
     )
 
-    stream = logging.StreamHandler(sys.stdout)
-    stream.setFormatter(console_formatter)
-    logger.addHandler(stream)
+    if console_log_mode == "progress":
+        stream = logging.StreamHandler(sys.stdout)
+        stream.setFormatter(console_formatter)
+        logger.addHandler(stream)
 
     file_handler = logging.FileHandler(run_dir / "train.log", encoding="utf-8")
     file_handler.setFormatter(file_formatter)
@@ -157,4 +160,3 @@ def metrics_jsonl_to_csv(jsonl_path: Path, csv_path: Path | None = None) -> Path
         writer.writeheader()
         writer.writerows(rows)
     return csv_path
-

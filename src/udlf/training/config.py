@@ -47,6 +47,7 @@ class UDLFTrainConfig:
     detach_state_between_segments: bool = True
 
     log_every: int = 1
+    console_log_mode: str = "progress"
     eval_every: int = 0
     eval_batches: int = 4
     intervention_shift_tokens: int = 1
@@ -94,6 +95,8 @@ class UDLFTrainConfig:
             raise ValueError("seq_len must be >= 2")
         if self.log_every < 1:
             raise ValueError("log_every must be >= 1")
+        if self.console_log_mode not in {"progress", "quiet"}:
+            raise ValueError("console_log_mode must be 'progress' or 'quiet'")
         if self.stop_check_every < 1:
             raise ValueError("stop_check_every must be >= 1")
         if self.segment_len_min < 0 or self.segment_len_max < 0:
