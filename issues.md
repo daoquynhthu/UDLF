@@ -76,6 +76,9 @@ Resolution direction:
 - Fixed diffusion shows the same K=4-over-K=1 pattern across seeds `721-723`:
   K=4 is slower but gives stronger intervention margins and more consistent
   attenuation deltas.
+- Phase 4 summary tables make fixed K=4 the current pragmatic default
+  candidate. This resolves the immediate default-selection ambiguity, but not
+  the broader robustness-gate design problem.
 - The short real-token fixed K=4 run verified stability but not causal state use
   on language data: zero-state was worse, while swapped/shifted/perturbed states
   were near-neutral or slightly helpful.

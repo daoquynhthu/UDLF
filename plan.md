@@ -305,13 +305,13 @@ Completed:
 - Ran a short real saved-token fixed K=4 confirmation on the local FineWeb
   subset. It verified training stability, checkpointing, and metrics on real
   token data, but did not establish language-data state causality.
+- Added a tracked Phase 4 ablation summary table generated from local run
+  metrics.
 
 Next:
 
-- Treat fixed and state-dependent diffusion as stronger candidates for
-  perturbation robustness, but do not claim attenuation robustness yet.
-- Compare fixed K=4 and state-dependent K=4 as default candidates using runtime,
-  core gate margins, and robustness deltas.
+- Treat fixed K=4 as the current pragmatic default candidate for local and
+  remote smoke runs unless a later ablation contradicts it.
 - Design a real-token diagnostic that has a meaningful state intervention
   target; plain next-token language data currently does not produce a clean
   swapped/shifted intervention signal.

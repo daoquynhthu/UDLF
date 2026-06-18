@@ -149,3 +149,10 @@ This file records concise action summaries only. Detailed planning belongs in
   worse by `+0.558` loss, but swapped/shifted/perturbed states were near-neutral
   or slightly better. The ordered query-recall gate remains the evidence for
   state causality; real-token runs currently verify training stability only.
+- Added `scripts/summarize_phase4_ablation.py` and generated tracked Phase 4
+  summaries under `doc/phase4_ablation_summary.md`,
+  `doc/phase4_ablation_summary.csv`, and `doc/phase4_ablation_runs.csv`.
+- The summary covers 28 Phase 4 query-recall runs across 8 mode/K groups.
+  Fixed K=4 is the current pragmatic default candidate: it is simpler than
+  state-dependent diffusion, has strong synthetic margins, and has already
+  been confirmed stable on real saved-token training.
