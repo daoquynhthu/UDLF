@@ -67,6 +67,9 @@ Resolution direction:
   perturbation robustness over ODE, promote that mode to the next ablation.
 - Carry fixed and state-dependent diffusion into solver-step ablations as
   robustness candidates.
+- Compare K=1/2/4/8 across more seeds before deciding whether deeper solver
+  integration is worth the runtime cost. The first state-dependent seed shows
+  K=1 already works, while K=4/K=8 are stronger but slower.
 - Do not use attenuation as a blocking robustness gate until a structured
   attenuation probe is defined; current attenuation deltas are too close to
   zero and inconsistent.

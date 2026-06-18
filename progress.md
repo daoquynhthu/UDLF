@@ -129,3 +129,7 @@ This file records concise action summaries only. Detailed planning belongs in
   perturbation deltas across all four seeds; ODE perturbation deltas were also
   positive but much smaller. Attenuation remained inconsistent and should not be
   used alone as a robustness gate.
+- Ran a first solver-step scan for state-dependent diffusion on query recall
+  with seed `720`: `K in {1, 2, 4, 8}` all passed the core gate. Higher `K`
+  improved eval loss and some intervention deltas, but throughput dropped
+  sharply; K=1 was already effective and much faster.

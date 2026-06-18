@@ -296,6 +296,8 @@ Completed:
   controlled ablations.
 - Extended the query-recall diffusion ablation to four matched seeds for ODE,
   fixed diffusion, and state-dependent diffusion.
+- Ran a first state-dependent solver-step scan for `K in {1, 2, 4, 8}` on one
+  query-recall seed.
 
 Next:
 
@@ -303,8 +305,9 @@ Next:
   ablations because all three passed the core gate.
 - Treat fixed and state-dependent diffusion as stronger candidates for
   perturbation robustness, but do not claim attenuation robustness yet.
-- Run solver-step ablations for `K in {1, 2, 4, 8}` on query recall before any
-  remote scale-up.
+- Extend solver-step ablations to multiple seeds and include fixed diffusion.
+- Decide whether K=4 or K=8 gives enough benefit over K=1/K=2 to justify the
+  runtime cost before any remote scale-up.
 
 ## Phase 5: Remote 4090 Smoke and Scale-Up
 
