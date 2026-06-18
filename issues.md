@@ -151,6 +151,10 @@ Immediate next actions:
   perturbation delta and stays positive across seeds `710-713`. Fixed diffusion
   remains useful and simpler, but it is no longer the strongest robustness
   candidate from the current evidence.
+- Real-token state-dependent K=4 does not yet transfer cleanly. Seeds `903` and
+  `904` both pass the core gate, but seed `904` has weak perturbation and
+  significantly negative batch-mix. Do not promote state-dependent diffusion to
+  default from synthetic CRN evidence alone.
 - Do not expand this issue with more raw observations unless they change the
   decision or close one of the resolution-plan steps.
 - Keep Phase 5 remote smoke scoped to fixed K=4 real-token query recall.

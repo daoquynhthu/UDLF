@@ -230,3 +230,10 @@ This file records concise action summaries only. Detailed planning belongs in
   run for seed `903` to 600 steps. CRN eval at alpha `0.2` passed the core
   gate and produced perturb `+0.0309`, batch-mix `+0.0181`, and temporal-mix
   `+0.0048`.
+- Ran a second local 5060 state-dependent K=4 real-token seed `904` to 600
+  steps with quiet console logging. Core gate passed, but robustness did not:
+  perturb was weak with CI crossing zero (`+0.0030`, CI `[-0.0018,+0.0078]`)
+  and batch-mix was significantly negative (`-0.0077`, CI
+  `[-0.0106,-0.0047]`).
+- Added `doc/real_token_state_dependent_crn.md` to separate real-token
+  state-dependent CRN evidence from the synthetic diffusion ablation.

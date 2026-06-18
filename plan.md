@@ -338,6 +338,10 @@ Next:
 - Continue local 5060 experiments before remote scale-up: run a medium
   state-dependent K=4 CRN confirmation and compare it against fixed K=4 on
   real-token query recall.
+- The first two real-token state-dependent K=4 seeds are mixed: seeds `903` and
+  `904` pass the core gate, but seed `904` fails the batch-mix robustness read.
+  Next, add more real-token seeds or inspect why seed `904` is robustly
+  sensitive to core interventions but not to structured mix.
 - Prepare a remote smoke config for fixed K=4 real-token query recall, using
   private data path configuration only.
 - Run remote sync and fixed K=4 real-token query-recall smoke once private
