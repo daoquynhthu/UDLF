@@ -112,3 +112,12 @@ This file records concise action summaries only. Detailed planning belongs in
 - Phase 3 is complete for the core state-causality gate. Robustness remains a
   separate unresolved gate because perturbation deltas are still near zero or
   slightly negative for some seeds.
+- Started Phase 4 diffusion ablation on query recall with seed `710`. ODE,
+  fixed diffusion, and state-dependent diffusion all passed the core gate at
+  400 steps. Fixed and state-dependent diffusion produced stronger perturbation
+  deltas than ODE in this single-seed run.
+- Added `--set key=value` overrides to `scripts/run_state_probe_matrix.py` for
+  controlled ablation runs without one-off templates.
+- Added trainer-side run overwrite protection. Fresh training now refuses to
+  start in a run directory with existing artifacts unless `resume` is set or
+  `allow_run_overwrite=true` is explicit.

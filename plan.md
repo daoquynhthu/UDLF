@@ -256,7 +256,7 @@ Verification:
 
 ## Phase 4: Numerical and Architectural Ablations
 
-Status: pending.
+Status: in progress.
 
 Purpose:
 
@@ -287,6 +287,19 @@ Verification:
 
 - Ablation tables for task metrics, runtime, and stability metrics.
 - Output KL or equivalent distribution comparison across `K`.
+
+Completed:
+
+- Started single-seed query-recall diffusion ablation for ODE, fixed diffusion,
+  and state-dependent diffusion at 400 steps.
+- Added generic `--set key=value` config overrides to the matrix runner for
+  controlled ablations.
+
+Next:
+
+- Extend the diffusion ablation to at least four seeds per mode.
+- Run solver-step ablations only after choosing the diffusion modes worth
+  carrying forward.
 
 ## Phase 5: Remote 4090 Smoke and Scale-Up
 

@@ -15,6 +15,17 @@ def _load_json(path: Path) -> dict[str, Any]:
         return json.load(handle)
 
 
+def _parse_override(raw: str) -> tuple[str, Any]:
+    if "=" not in raw:
+        raise ValueError(f"override must use key=value form: {raw!r}")
+    key, value = raw.split("=", 1)
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        parsed = value
+    return key, parsed
+
+
 def _last_eval_row(metrics_path: Path) -> dict[str, Any]:
     last: dict[str, Any] | None = None
     with metrics_path.open("r", encoding="utf-8") as handle:
@@ -46,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--eval-every", type=int, default=0)
     parser.add_argument("--save-every", type=int, default=0)
     parser.add_argument("--log-every", type=int, default=0)
+    parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE", help="Override a JSON config key.")
     parser.add_argument("--summary", type=Path, default=Path("runs/udlf_state_probe_matrix_summary.json"))
     parser.add_argument("--check", action="store_true", help="Run check_state_probe.py after each seed.")
     parser.add_argument("--check-profile", choices=["all", "core", "robustness"], default="all")
@@ -54,11 +66,13 @@ def main(argv: list[str] | None = None) -> int:
 
     repo_root = Path.cwd()
     template = _load_json(args.template)
+    overrides = dict(_parse_override(item) for item in args.set)
     summaries: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="udlf_state_probe_") as temp_dir:
         temp_root = Path(temp_dir)
         for seed in args.seeds:
             config = dict(template)
+            config.update(overrides)
             run_dir = Path(f"{args.run_prefix}_seed{seed}")
             config["seed"] = seed
             config["run_dir"] = str(run_dir)

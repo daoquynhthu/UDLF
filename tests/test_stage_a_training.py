@@ -71,6 +71,35 @@ def test_stage_a_training_resumes_from_checkpoint(tmp_path):
     assert rows[-1]["step"] == 3
 
 
+def test_stage_a_training_refuses_accidental_run_overwrite(tmp_path):
+    run_dir = tmp_path / "guard"
+    config = {
+        "mode": "stage-a",
+        "device": "cpu",
+        "vocab_size": 24,
+        "seq_len": 8,
+        "batch_size": 2,
+        "steps": 1,
+        "latent_slots": 4,
+        "latent_dim": 16,
+        "embed_dim": 16,
+        "ff_multiplier": 2,
+        "latent_heads": 4,
+        "readout_heads": 2,
+        "solver_steps": 1,
+        "diffusion_mode": "ode",
+        "async_checkpoint": False,
+    }
+    run_stage_a(config=config, run_dir=run_dir)
+
+    try:
+        run_stage_a(config=config, run_dir=run_dir)
+    except RuntimeError as exc:
+        assert "refusing to start a fresh training run" in str(exc)
+    else:
+        raise AssertionError("expected run overwrite guard to fail")
+
+
 def test_train_config_accepts_parameters_and_steps_alias():
     config = train_config_from_dict(
         {

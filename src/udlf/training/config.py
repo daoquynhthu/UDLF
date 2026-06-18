@@ -61,6 +61,7 @@ class UDLFTrainConfig:
     stop_check_every: int = 1
     resume: str = ""
     strict_resume: bool = True
+    allow_run_overwrite: bool = False
 
     vocab_size: int = 64
     latent_slots: int = 8

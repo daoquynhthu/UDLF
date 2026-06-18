@@ -290,6 +290,13 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
         train_config.run_dir = str(run_dir)
     run_dir = train_config.resolved_run_dir()
     models_dir = run_dir / "models"
+    existing_artifacts = [run_dir / "latest.pt", run_dir / "metrics.jsonl", models_dir / "model_latest.pt"]
+    if not train_config.resume and not train_config.allow_run_overwrite and any(path.exists() for path in existing_artifacts):
+        found = ", ".join(str(path) for path in existing_artifacts if path.exists())
+        raise RuntimeError(
+            "refusing to start a fresh training run in a non-empty run_dir; "
+            f"found existing artifacts: {found}. Set resume to continue or allow_run_overwrite=true to replace."
+        )
     run_dir.mkdir(parents=True, exist_ok=True)
     models_dir.mkdir(parents=True, exist_ok=True)
 

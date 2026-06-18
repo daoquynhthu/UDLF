@@ -54,35 +54,15 @@ Impact:
 
 Resolution direction:
 
-- Add a clearer controlled state-carry task or mask the impossible prefix loss
-  so the memory-dependent portion is directly optimized.
 - Keep robustness separate from core causality during Phase 4.
-- Treat perturbation/attenuation as robustness diagnostics unless the
-  architecture is changed to make them semantically meaningful destructive
-  interventions.
-
-### Experiment checkpoints can be overwritten by ad-hoc run config mistakes
-
-Status: open.
-
-An ad-hoc query-recall re-evaluation intended to resume seed `703` omitted the
-resume field in the generated temporary config and overwrote that ignored run
-directory's `latest.pt` and `best.pt` with a short fresh run.
-
-Impact:
-
-- The repository is not affected because `runs/` is ignored.
-- The seed `703` run directory should not be used for checkpoint continuation
-  without rerunning it.
-- Manual temp-config mutation is too error-prone for checkpointed experiments.
-
-Resolution direction:
-
-- Use `scripts/run_state_probe_matrix.py --resume-existing` for resumed matrix
-  runs.
-- Keep eval/save/log interval overrides in the runner instead of hand-editing
-  temporary configs.
-- Add stricter trainer-side resume guards before longer experiments.
+- Run the query-recall diffusion matrix across at least four seeds for ODE,
+  fixed diffusion, and state-dependent diffusion using
+  `scripts/run_state_probe_matrix.py --set diffusion_mode=...`.
+- Compare perturbation, attenuation, and inverted-state deltas by diffusion
+  mode. If fixed or state-dependent diffusion consistently improves
+  perturbation robustness over ODE, promote that mode to the next ablation.
+- If robustness remains near zero across modes, design a structured robustness
+  probe instead of treating random perturbation as a blocking gate.
 
 
 ## Resolved
@@ -94,3 +74,13 @@ Resolved on 2026-06-17.
 The harness now includes config/runtime/logging/checkpoint modules, run config
 snapshots, async metrics, CSV export, latest/best checkpoints, resume support,
 failed-run checkpoints, segmented state carry, and intervention evaluation.
+
+### Experiment checkpoints can be overwritten by ad-hoc run config mistakes
+
+Resolved on 2026-06-18.
+
+An ad-hoc query-recall re-evaluation intended to resume seed `703` omitted the
+resume field in a generated temporary config and overwrote that ignored run
+directory's checkpoints. The trainer now refuses to start a fresh run in a run
+directory containing `latest.pt`, `metrics.jsonl`, or `model_latest.pt` unless
+`resume` is set or `allow_run_overwrite=true` is explicit.
