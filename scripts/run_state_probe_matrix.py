@@ -60,7 +60,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE", help="Override a JSON config key.")
     parser.add_argument("--summary", type=Path, default=Path("runs/udlf_state_probe_matrix_summary.json"))
     parser.add_argument("--check", action="store_true", help="Run check_state_probe.py after each seed.")
-    parser.add_argument("--check-profile", choices=["all", "core", "robustness", "structured"], default="all")
+    parser.add_argument(
+        "--check-profile",
+        choices=["all", "core", "robustness", "structured", "structured-batch", "structured-temporal"],
+        default="all",
+    )
     parser.add_argument("--resume-existing", action="store_true", help="Resume from latest.pt when the run directory already has one.")
     args = parser.parse_args(argv)
 
@@ -110,6 +114,7 @@ def main(argv: list[str] | None = None) -> int:
                     "shifted_delta": row.get("intervention_shifted_delta"),
                     "shift_tokens": row.get("intervention_shift_tokens"),
                     "mixed_delta": row.get("intervention_mixed_delta"),
+                    "temporal_mixed_delta": row.get("intervention_temporal_mixed_delta"),
                     "mix_alpha": row.get("intervention_mix_alpha"),
                     "perturbed_delta": row.get("intervention_perturbed_delta"),
                     "attenuated_delta": row.get("intervention_attenuated_delta"),

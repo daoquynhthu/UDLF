@@ -330,10 +330,11 @@ Next:
   `scripts/check_state_probe.py --profile structured` on new metrics-bearing
   runs. This is the first concrete structured robustness diagnostic; it does
   not replace the broader robustness gate yet.
-- The first mixed-alpha sweep over `alpha in {0.05, 0.1, 0.2, 0.4}` is complete
-  for real-token fixed K=4 seeds `900`, `901`, and `902`. Next, define a
-  thresholded structured gate and add at least one more structured intervention
-  family before using robustness as a blocking acceptance criterion.
+- The first structured sweep over `alpha in {0.05, 0.1, 0.2, 0.4}` is complete
+  for real-token fixed K=4 seeds `900`, `901`, and `902`. Batch-mix mostly
+  behaves as expected, but temporal-mix fails on seed `901`; next, define
+  per-probe thresholds and inspect whether temporal-mix is a valid destructive
+  intervention for query recall.
 - Keep plain next-token language intervention metrics out of the core
   state-causality gate unless a meaningful target is defined.
 

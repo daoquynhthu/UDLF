@@ -45,6 +45,8 @@ def test_stage_a_training_writes_metrics(tmp_path):
     assert rows[-1]["intervention_mix_alpha"] == 0.25
     assert "intervention_mixed_loss" in rows[-1]
     assert "intervention_mixed_delta" in rows[-1]
+    assert "intervention_temporal_mixed_loss" in rows[-1]
+    assert "intervention_temporal_mixed_delta" in rows[-1]
 
 
 def test_stage_a_training_resumes_from_checkpoint(tmp_path):

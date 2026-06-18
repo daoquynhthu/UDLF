@@ -202,6 +202,7 @@ def _evaluate_interventions(
         swapped = loss_for(state.flip(0))
         shifted = loss_for(shifted_state)
         mixed = loss_for(state.lerp(state.flip(0), mix_alpha))
+        temporal_mixed = loss_for(state.lerp(shifted_state, mix_alpha))
         attenuated = loss_for(state * 0.5)
         inverted = loss_for(-state)
         perturb_losses = [
@@ -222,6 +223,7 @@ def _evaluate_interventions(
         "intervention_swapped_loss": swapped,
         "intervention_shifted_loss": shifted,
         "intervention_mixed_loss": mixed,
+        "intervention_temporal_mixed_loss": temporal_mixed,
         "intervention_perturbed_loss": perturbed,
         "intervention_perturbed_min_loss": perturb_min,
         "intervention_perturbed_max_loss": perturb_max,
@@ -231,6 +233,7 @@ def _evaluate_interventions(
         "intervention_swapped_delta": swapped - correct,
         "intervention_shifted_delta": shifted - correct,
         "intervention_mixed_delta": mixed - correct,
+        "intervention_temporal_mixed_delta": temporal_mixed - correct,
         "intervention_perturbed_delta": perturbed - correct,
         "intervention_perturbed_min_delta": perturb_min - correct,
         "intervention_perturbed_max_delta": perturb_max - correct,

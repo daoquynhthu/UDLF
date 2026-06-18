@@ -191,7 +191,12 @@ This file records concise action summaries only. Detailed planning belongs in
   `+0.0060`. Random perturbation and attenuation remain inconsistent, so the
   robustness blocker is not closed.
 - Ran the mixed-alpha sweep for `alpha in {0.05, 0.1, 0.2, 0.4}` on the same
-  three checkpoints. All 12 structured checks passed; mean mixed delta rose
-  from `+0.0044` at alpha `0.05` to `+0.5155` at alpha `0.4`.
+  three checkpoints. Batch-mix deltas grew with alpha, but seed `901` was
+  slightly negative at alpha `0.05`.
 - Added `doc/structured_robustness_probe.md` with the structured probe
   definition, commands, per-seed results, aggregate table, and current read.
+- Added temporal-mix as a second structured intervention family. It exposed a
+  real weakness: seed `901` had negative temporal-mix deltas across all tested
+  alphas, so structured robustness is not ready to close.
+- Split structured checking into `structured-batch` and `structured-temporal`
+  profiles while keeping `structured` as the strict combined profile.

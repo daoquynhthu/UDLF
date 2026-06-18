@@ -11,6 +11,7 @@ DEFAULT_THRESHOLDS = {
     "intervention_swapped_delta": 0.03,
     "intervention_shifted_delta": 0.02,
     "intervention_mixed_delta": 0.0,
+    "intervention_temporal_mixed_delta": 0.0,
     "intervention_perturbed_delta": 0.0,
     "intervention_attenuated_delta": 0.0,
     "intervention_inverted_delta": 0.0,
@@ -40,11 +41,16 @@ def _last_eval_row(metrics_path: Path) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Check the latest Stage A state intervention metrics.")
     parser.add_argument("metrics", type=Path, help="Path to metrics.jsonl")
-    parser.add_argument("--profile", choices=["all", "core", "robustness", "structured"], default="all")
+    parser.add_argument(
+        "--profile",
+        choices=["all", "core", "robustness", "structured", "structured-batch", "structured-temporal"],
+        default="all",
+    )
     parser.add_argument("--zero", type=float, default=DEFAULT_THRESHOLDS["intervention_zero_delta"])
     parser.add_argument("--swapped", type=float, default=DEFAULT_THRESHOLDS["intervention_swapped_delta"])
     parser.add_argument("--shifted", type=float, default=DEFAULT_THRESHOLDS["intervention_shifted_delta"])
     parser.add_argument("--mixed", type=float, default=DEFAULT_THRESHOLDS["intervention_mixed_delta"])
+    parser.add_argument("--temporal-mixed", type=float, default=DEFAULT_THRESHOLDS["intervention_temporal_mixed_delta"])
     parser.add_argument("--perturbed", type=float, default=DEFAULT_THRESHOLDS["intervention_perturbed_delta"])
     parser.add_argument("--attenuated", type=float, default=DEFAULT_THRESHOLDS["intervention_attenuated_delta"])
     parser.add_argument("--inverted", type=float, default=DEFAULT_THRESHOLDS["intervention_inverted_delta"])
@@ -56,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         "intervention_swapped_delta": args.swapped,
         "intervention_shifted_delta": args.shifted,
         "intervention_mixed_delta": args.mixed,
+        "intervention_temporal_mixed_delta": args.temporal_mixed,
         "intervention_perturbed_delta": args.perturbed,
         "intervention_attenuated_delta": args.attenuated,
         "intervention_inverted_delta": args.inverted,
@@ -76,7 +83,19 @@ def main(argv: list[str] | None = None) -> int:
         thresholds = {
             key: value
             for key, value in thresholds.items()
+            if key in {"intervention_mixed_delta", "intervention_temporal_mixed_delta"}
+        }
+    elif args.profile == "structured-batch":
+        thresholds = {
+            key: value
+            for key, value in thresholds.items()
             if key in {"intervention_mixed_delta"}
+        }
+    elif args.profile == "structured-temporal":
+        thresholds = {
+            key: value
+            for key, value in thresholds.items()
+            if key in {"intervention_temporal_mixed_delta"}
         }
     failed: list[str] = []
     for key, threshold in thresholds.items():
