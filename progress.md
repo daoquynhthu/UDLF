@@ -315,3 +315,7 @@ This file records concise action summaries only. Detailed planning belongs in
   task.
 - Fixed current-user service ACL handling so the scheduled task can read the
   workspace token and TLS key after the service stopped running as SYSTEM.
+- Verified remote `.venv312` import preflight from `L:\UDLF_REMOTE\UDLF`:
+  `torch 2.11.0+cu128`, CUDA available, GPU `NVIDIA GeForce RTX 4090`.
+- Ran the full test suite on the remote 4090 workspace with
+  `PYTHONPATH=src` and a UDLF-owned temp directory; `21 passed`.
