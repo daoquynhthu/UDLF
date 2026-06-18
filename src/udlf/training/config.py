@@ -52,6 +52,13 @@ class UDLFTrainConfig:
     segment_len_min: int = 0
     segment_len_max: int = 0
     detach_state_between_segments: bool = True
+    prior_path_samples: int = 1
+    prior_state_selection: str = "first"
+    lambda_prior: float = 1.0
+    lambda_posterior: float = 1.0
+    lambda_kl: float = 1.0
+    posterior_dropout: float = 0.0
+    posterior_dropout_max: float = 0.95
 
     log_every: int = 1
     console_log_mode: str = "progress"
@@ -124,10 +131,30 @@ class UDLFTrainConfig:
             raise ValueError("log_every must be >= 1")
         if self.console_log_mode not in {"progress", "quiet"}:
             raise ValueError("console_log_mode must be 'progress' or 'quiet'")
+        if self.mode not in {"stage-a", "stage-b"}:
+            raise ValueError("mode must be 'stage-a' or 'stage-b'")
         if self.architecture not in {"udlf", "mamba"}:
             raise ValueError("architecture must be 'udlf' or 'mamba'")
+        if self.mode == "stage-b" and self.architecture != "udlf":
+            raise ValueError("stage-b mode requires architecture='udlf'")
         if self.stop_check_every < 1:
             raise ValueError("stop_check_every must be >= 1")
+        if self.prior_path_samples < 1:
+            raise ValueError("prior_path_samples must be >= 1")
+        if self.prior_state_selection not in {"first", "mean"}:
+            raise ValueError("prior_state_selection must be 'first' or 'mean'")
+        if self.prior_path_samples > 1 and self.segment_len > 0:
+            raise ValueError("prior_path_samples > 1 currently requires segment_len=0")
+        if self.mode == "stage-b" and self.segment_len > 0:
+            raise ValueError("stage-b mode currently requires segment_len=0")
+        if self.lambda_prior < 0 or self.lambda_posterior < 0 or self.lambda_kl < 0:
+            raise ValueError("lambda_prior, lambda_posterior, and lambda_kl must be non-negative")
+        if not 0.0 <= self.posterior_dropout < 1.0:
+            raise ValueError("posterior_dropout must satisfy 0 <= p < 1")
+        if not 0.0 <= self.posterior_dropout_max < 1.0:
+            raise ValueError("posterior_dropout_max must satisfy 0 <= p < 1")
+        if self.posterior_dropout > self.posterior_dropout_max:
+            raise ValueError("posterior_dropout must be <= posterior_dropout_max")
         if self.segment_len_min < 0 or self.segment_len_max < 0:
             raise ValueError("segment_len_min and segment_len_max must be >= 0")
         if self.segment_len_min and self.segment_len_max and self.segment_len_min > self.segment_len_max:

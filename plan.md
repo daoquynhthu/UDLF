@@ -417,7 +417,7 @@ Verification:
 
 ## Phase 6: Stage B Decision Gate
 
-Status: pending.
+Status: implementation scaffold complete; experiment gate pending.
 
 Purpose:
 
@@ -433,16 +433,50 @@ Entry conditions:
 
 Tasks:
 
-- Design the controlled posterior implementation without allowing posterior
-  state propagation.
-- Define posterior dropout schedule and gradient-weight normalization.
-- Define posterior-prior gap diagnostics before implementation.
+- Implement the controlled posterior without allowing posterior state
+  propagation. Status: implemented behind `mode="stage-b"`.
+- Define posterior dropout schedule and gradient-weight normalization. Status:
+  implemented as `posterior_dropout` with inverse retention normalization.
+- Define posterior-prior gap diagnostics before implementation. Status:
+  implemented as `posterior_prior_state_gap`, `loss_prior`,
+  `loss_posterior`, `posterior_kl`, `posterior_used`, and
+  `posterior_weight`.
+- Run only smoke tests until Stage A has a reliable scale baseline.
 
 Acceptance criteria:
 
 - Stage B is not used to rescue a prior model that does not work.
 - The double-track state protocol is testable.
 - Any filtering-posterior experiment is labeled as a different training regime.
+- Stage B large-scale experiments remain blocked until Stage A 64M throughput
+  and baseline comparisons are clean.
+
+## Phase 7: Full Architecture Faithfulness
+
+Status: in progress.
+
+Purpose:
+
+Make the code path match the v0.6 design surface before drawing stronger
+architecture conclusions.
+
+Completed:
+
+- Stage A single-path prior training.
+- Stage A multi-sample prior objective with per-token `logsumexp`.
+- Explicit multi-sample state continuation policy through
+  `prior_state_selection`.
+- Stage B controlled posterior with shared prior drift/diffusion, per-microstep
+  posterior control, discrete control-energy KL, posterior dropout, and
+  double-track prior-state propagation.
+- Local smoke config for Stage B.
+
+Remaining:
+
+- Jacobian and Lyapunov diagnostics.
+- Injection jump/gate/attention entropy diagnostics.
+- Explicit filtering-posterior ablation as a separately labeled regime.
+- Large-scale Stage B is intentionally not scheduled yet.
 
 ## Current Priority
 

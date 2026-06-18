@@ -119,6 +119,26 @@ class PriorDynamics(nn.Module):
         return z
 
 
+class PosteriorControl(nn.Module):
+    def __init__(self, config: UDLFModelConfig) -> None:
+        super().__init__()
+        d = config.latent_dim
+        self.norm = RMSNorm(d, config.rms_eps)
+        self.target = nn.Linear(config.embed_dim, d)
+        self.token = nn.Linear(config.embed_dim, d)
+        self.control = nn.Sequential(
+            nn.Linear(3 * d, config.ff_multiplier * d),
+            nn.SiLU(),
+            nn.Linear(config.ff_multiplier * d, d),
+        )
+
+    def forward(self, state: Tensor, token_embed: Tensor, target_embed: Tensor) -> Tensor:
+        normalized = self.norm(state)
+        token = self.token(token_embed).unsqueeze(1).expand_as(normalized)
+        target = self.target(target_embed).unsqueeze(1).expand_as(normalized)
+        return self.control(torch.cat([normalized, token, target], dim=-1))
+
+
 class LatentReadout(nn.Module):
     def __init__(self, config: UDLFModelConfig) -> None:
         super().__init__()

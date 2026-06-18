@@ -107,6 +107,85 @@ def _masked_sequence_loss(logits: torch.Tensor, targets: torch.Tensor, loss_mask
     return selected.mean()
 
 
+def _prior_multisample_forward(
+    model: UDLFStageAModel,
+    batch: torch.Tensor,
+    *,
+    loss_mask: torch.Tensor | None,
+    path_samples: int,
+    state_selection: str,
+    generator: torch.Generator,
+    diagnostics: dict[str, list[torch.Tensor]] | None,
+) -> tuple[torch.Tensor, torch.Tensor, dict[str, float]]:
+    targets = batch[:, 1:]
+    states: list[torch.Tensor] = []
+    token_log_probs: list[torch.Tensor] = []
+    for _ in range(path_samples):
+        logits, final_state = model.forward_prefix(batch[:, :-1], generator=generator, diagnostics=diagnostics)
+        log_prob = F.log_softmax(logits, dim=-1).gather(-1, targets.unsqueeze(-1)).squeeze(-1)
+        token_log_probs.append(log_prob)
+        states.append(final_state)
+    stacked_log_probs = torch.stack(token_log_probs, dim=0)
+    marginal_log_probs = torch.logsumexp(stacked_log_probs, dim=0) - math.log(path_samples)
+    if loss_mask is not None:
+        selected = marginal_log_probs[loss_mask]
+        if selected.numel() == 0:
+            raise ValueError("loss_mask selected no target tokens")
+        loss = -selected.mean()
+    else:
+        loss = -marginal_log_probs.mean()
+    if state_selection == "mean":
+        final_state = torch.stack(states, dim=0).mean(dim=0)
+    else:
+        final_state = states[0]
+    weights = torch.softmax(stacked_log_probs.detach(), dim=0)
+    metrics = {
+        "prior_path_samples": float(path_samples),
+        "prior_path_weight_entropy": float((-(weights * weights.clamp_min(1e-12).log()).sum(dim=0).mean()).detach().cpu()),
+        "prior_path_logprob_gap": float((stacked_log_probs.max(dim=0).values - stacked_log_probs.min(dim=0).values).mean().detach().cpu()),
+    }
+    return loss, final_state, metrics
+
+
+def _stage_b_forward(
+    model: UDLFStageAModel,
+    batch: torch.Tensor,
+    *,
+    loss_mask: torch.Tensor | None,
+    generator: torch.Generator,
+    use_posterior: bool,
+    diagnostics: dict[str, list[torch.Tensor]] | None,
+    config: UDLFTrainConfig,
+) -> tuple[torch.Tensor, torch.Tensor, dict[str, float]]:
+    targets = batch[:, 1:]
+    prior_generator = generator
+    posterior_generator = generator
+    output = model.forward_posterior_prefix(
+        batch[:, :-1],
+        targets,
+        prior_generator=prior_generator,
+        posterior_generator=posterior_generator,
+        diagnostics=diagnostics,
+    )
+    prior_loss = _masked_sequence_loss(output.prior_logits, targets, loss_mask, model.config.vocab_size)
+    posterior_loss = _masked_sequence_loss(output.posterior_logits, targets, loss_mask, model.config.vocab_size)
+    posterior_weight = 0.0
+    if use_posterior:
+        posterior_weight = config.lambda_posterior / max(1e-8, 1.0 - config.posterior_dropout)
+    total = config.lambda_prior * prior_loss
+    if use_posterior:
+        total = total + posterior_weight * (posterior_loss + config.lambda_kl * output.posterior_kl)
+    metrics = {
+        "loss_prior": float(prior_loss.detach().cpu()),
+        "loss_posterior": float(posterior_loss.detach().cpu()),
+        "posterior_kl": float(output.posterior_kl.detach().cpu()),
+        "posterior_used": float(use_posterior),
+        "posterior_weight": float(posterior_weight),
+        "posterior_prior_state_gap": float((output.posterior_final_state - output.prior_final_state).detach().pow(2).mean().sqrt().cpu()),
+    }
+    return total, output.prior_final_state, metrics
+
+
 def _forward_segmented(
     model: UDLFStageAModel,
     batch: torch.Tensor,
@@ -767,7 +846,8 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
     last_metrics: dict[str, Any] = {"step": start_step}
 
     logger.info(
-        "UDLF stage A training started architecture=%s params=%d device=%s amp=%s data=%s resume_step=%d",
+        "UDLF training started mode=%s architecture=%s params=%d device=%s amp=%s data=%s resume_step=%d",
+        train_config.mode,
         train_config.architecture,
         parameter_count,
         device,
@@ -787,6 +867,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
             final_state = None
             loss = None
             batch_tokens = 0
+            architecture_metrics: dict[str, float] = {}
             dynamics_diagnostics: dict[str, list[torch.Tensor]] | None = {} if train_config.dynamics_diagnostics else None
             for accum_index in range(train_config.grad_accum_steps):
                 batch, loss_mask = _sample_training_batch(train_dataset, train_config.batch_size, device)
@@ -795,7 +876,31 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                     did_backward = False
                     segment_len = _choose_segment_len(train_config, noise_generator, device)
                     if isinstance(model, UDLFStageAModel):
-                        if segment_len > 0 and train_config.detach_state_between_segments:
+                        if train_config.mode == "stage-b":
+                            dropout_value = torch.rand((), generator=noise_generator, device=device)
+                            use_posterior = bool(dropout_value.item() >= train_config.posterior_dropout)
+                            micro_loss, final_state, micro_metrics = _stage_b_forward(
+                                model,
+                                batch,
+                                loss_mask=loss_mask,
+                                generator=noise_generator,
+                                use_posterior=use_posterior,
+                                diagnostics=dynamics_diagnostics,
+                                config=train_config,
+                            )
+                            architecture_metrics.update(micro_metrics)
+                        elif train_config.prior_path_samples > 1:
+                            micro_loss, final_state, micro_metrics = _prior_multisample_forward(
+                                model,
+                                batch,
+                                loss_mask=loss_mask,
+                                path_samples=train_config.prior_path_samples,
+                                state_selection=train_config.prior_state_selection,
+                                generator=noise_generator,
+                                diagnostics=dynamics_diagnostics,
+                            )
+                            architecture_metrics.update(micro_metrics)
+                        elif segment_len > 0 and train_config.detach_state_between_segments:
                             micro_loss, final_state = _backward_segmented(
                                 model,
                                 batch,
@@ -845,8 +950,10 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 "parameter_count": parameter_count,
                 "device": device.type,
                 "amp": train_config.amp and device.type == "cuda",
-                "stage_a": True,
+                "stage_a": train_config.mode == "stage-a",
+                "training_mode": train_config.mode,
             }
+            metrics.update(architecture_metrics)
             if isinstance(model, UDLFStageAModel):
                 assert final_state is not None
                 metrics["diffusion_mode"] = model_config.diffusion_mode
@@ -942,7 +1049,10 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
             writer.close()
         metric_logger.close()
         metrics_jsonl_to_csv(run_dir / "metrics.jsonl")
-        logger.info("UDLF stage A training finished step=%d", step)
+        if train_config.mode == "stage-a":
+            logger.info("UDLF stage A training finished step=%d", step)
+        else:
+            logger.info("UDLF training finished mode=%s step=%d", train_config.mode, step)
     except BaseException as exc:
         try:
             try:

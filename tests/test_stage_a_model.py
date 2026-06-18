@@ -96,8 +96,23 @@ def test_explicit_state_carry_matches_single_prefix_in_ode_mode():
     assert torch.allclose(full_logits, segmented_logits, atol=1e-5, rtol=1e-5)
 
 
-def test_mamba_lm_forward_shapes_and_loss():
+def test_posterior_prefix_keeps_prior_and_posterior_states_separate():
     torch.manual_seed(7)
+    model = UDLFStageAModel(small_config(diffusion_mode="ode"))
+    input_ids = torch.tensor([[3, 1, 4, 1]])
+    targets = torch.tensor([[1, 4, 1, 5]])
+
+    output = model.forward_posterior_prefix(input_ids, targets)
+
+    assert output.prior_logits.shape == (1, 4, model.config.vocab_size)
+    assert output.posterior_logits.shape == (1, 4, model.config.vocab_size)
+    assert output.prior_final_state.shape == output.posterior_final_state.shape
+    assert output.posterior_kl.ndim == 0
+    assert torch.isfinite(output.posterior_kl)
+
+
+def test_mamba_lm_forward_shapes_and_loss():
+    torch.manual_seed(8)
     model = MambaLMModel(MambaLMConfig(vocab_size=37, d_model=24, n_layers=2, d_state=4, expand=2, conv_kernel=3))
     input_ids = torch.randint(0, model.config.vocab_size, (2, 9))
 

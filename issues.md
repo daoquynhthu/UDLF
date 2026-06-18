@@ -292,6 +292,35 @@ Exit criteria:
   ablation run starts; otherwise throughput and selected batch are not valid
   UDLF evidence.
 
+### Full v0.6 architecture still lacks dynamical diagnostics
+
+Status: active.
+
+The model/training surface now includes Stage A multi-sample prior training and
+Stage B controlled posterior training, but the diagnostic surface is still not
+fully faithful to v0.6. The missing pieces are not cosmetic: they are needed to
+distinguish real persistent-field dynamics from injection/readout shortcuts and
+from numerical artifacts.
+
+Resolution plan:
+
+1. Add injection diagnostics: relative jump magnitude, write-gate saturation,
+   allocation entropy, and injection-state cosine.
+2. Add local Jacobian-vector or power-iteration diagnostics for the injection
+   map and prior drift.
+3. Add finite-time Lyapunov diagnostic as an opt-in diagnostic mode, not as a
+   default training cost.
+4. Keep Stage B large-scale runs blocked until Stage A throughput and
+   diagnostics are clean.
+
+Exit criteria:
+
+- Diagnostic mode emits the required v0.6 stability fields without changing
+  normal training behavior.
+- The fields are covered by a focused smoke test.
+- Any report claiming v0.6 architecture behavior distinguishes implemented
+  mechanisms from still-missing diagnostics.
+
 
 ## Resolved
 

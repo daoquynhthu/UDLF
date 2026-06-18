@@ -352,3 +352,10 @@ This file records concise action summaries only. Detailed planning belongs in
   records CUDA reserved memory as well as allocated memory and uses the larger
   value for selection. Remote testing is paused while non-UDLF Python processes
   are using roughly half of the 4090 memory.
+- Implemented the main missing v0.6 architecture mechanisms: Stage A
+  multi-sample prior training with per-token `logsumexp`, explicit
+  multi-sample prior state selection, and Stage B controlled posterior training
+  with double-track prior-state propagation, posterior dropout normalization,
+  discrete control-energy KL, and posterior/prior gap metrics.
+- Added a local Stage B smoke config and tests covering posterior prefix
+  shapes, multi-sample prior metrics, and Stage B posterior metrics.

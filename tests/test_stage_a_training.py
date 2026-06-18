@@ -88,6 +88,77 @@ def test_stage_a_training_resumes_from_checkpoint(tmp_path):
     assert rows[-1]["step"] == 3
 
 
+def test_stage_a_multisample_prior_writes_path_metrics(tmp_path):
+    run_dir = tmp_path / "multisample"
+    config = {
+        "mode": "stage-a",
+        "device": "cpu",
+        "vocab_size": 24,
+        "seq_len": 8,
+        "batch_size": 2,
+        "steps": 1,
+        "latent_slots": 4,
+        "latent_dim": 16,
+        "embed_dim": 16,
+        "ff_multiplier": 2,
+        "latent_heads": 4,
+        "readout_heads": 2,
+        "solver_steps": 1,
+        "diffusion_mode": "fixed",
+        "fixed_sigma": 0.01,
+        "prior_path_samples": 2,
+        "prior_state_selection": "mean",
+        "async_checkpoint": False,
+        "eval_every": 0,
+    }
+
+    run_stage_a(config=config, run_dir=run_dir)
+
+    rows = [json.loads(line) for line in (run_dir / "metrics.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert rows[-1]["prior_path_samples"] == 2.0
+    assert "prior_path_weight_entropy" in rows[-1]
+    assert "prior_path_logprob_gap" in rows[-1]
+
+
+def test_stage_b_training_writes_posterior_metrics_without_stage_a_flag(tmp_path):
+    run_dir = tmp_path / "stage_b"
+    config = {
+        "mode": "stage-b",
+        "architecture": "udlf",
+        "device": "cpu",
+        "vocab_size": 24,
+        "seq_len": 8,
+        "batch_size": 2,
+        "steps": 1,
+        "latent_slots": 4,
+        "latent_dim": 16,
+        "embed_dim": 16,
+        "ff_multiplier": 2,
+        "latent_heads": 4,
+        "readout_heads": 2,
+        "solver_steps": 1,
+        "diffusion_mode": "fixed",
+        "fixed_sigma": 0.01,
+        "lambda_prior": 1.0,
+        "lambda_posterior": 0.5,
+        "lambda_kl": 0.1,
+        "posterior_dropout": 0.0,
+        "async_checkpoint": False,
+        "eval_every": 0,
+    }
+
+    run_stage_a(config=config, run_dir=run_dir)
+
+    rows = [json.loads(line) for line in (run_dir / "metrics.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert rows[-1]["stage_a"] is False
+    assert rows[-1]["training_mode"] == "stage-b"
+    assert "loss_prior" in rows[-1]
+    assert "loss_posterior" in rows[-1]
+    assert "posterior_kl" in rows[-1]
+    assert rows[-1]["posterior_used"] == 1.0
+    assert "posterior_prior_state_gap" in rows[-1]
+
+
 def test_stage_a_training_refuses_accidental_run_overwrite(tmp_path):
     run_dir = tmp_path / "guard"
     config = {
