@@ -259,3 +259,10 @@ This file records concise action summaries only. Detailed planning belongs in
   `0.015` and `0.020`. Seed `904` passed the core gate at all four amplitudes,
   but robustness remained inconsistent. Added
   `doc/state_dependent_sigma_matrix.csv`.
+- Ran a seed `906` horizon check by continuing `sigma_max=0.010` and
+  `sigma_max=0.020` state-dependent K=4 runs from 600 to 1200 steps.
+  `sigma_max=0.010` lost its 600-step core pass at 1200 steps
+  (`shifted=-0.0139`), and `sigma_max=0.020` also failed
+  (`shifted=-0.0344`). Added `doc/state_dependent_horizon_check.csv`.
+- Changed `scripts/run_state_probe_matrix.py` to default to compact one-line
+  console output; full JSON printing now requires `--print-json`.

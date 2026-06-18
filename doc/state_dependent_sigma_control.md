@@ -27,6 +27,7 @@ parameterization failure, or is it sensitive to the diffusion amplitude range?
 | `sigma_max=0.01` | 7.8928 | +2.4377 | +0.1458 | +0.1047 | +0.5989 | +0.0097 | [+0.0096, +0.0099] | +0.0335 | [+0.0315, +0.0356] | +0.0019 | [-0.0004, +0.0041] | pass |
 
 Full matrix CSV: `doc/state_dependent_sigma_matrix.csv`.
+Horizon check CSV: `doc/state_dependent_horizon_check.csv`.
 
 | seed | sigma max | eval | shifted | perturb | batch mix | temporal mix | core |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -46,13 +47,25 @@ Full matrix CSV: `doc/state_dependent_sigma_matrix.csv`.
 | `sigma_max=0.02` | 7.6768 | 0.0001001 | 0.0200195 | 0.0136530 | 0.1587440 | 0.0402881 | 9.1226 | 1.1289 |
 | `sigma_max=0.01` | 7.7672 | 0.0001001 | 0.0100098 | 0.0070366 | 0.1564265 | 0.0392726 | 12.2228 | 1.1290 |
 
+## Horizon Check
+
+Seed `906` was continued from 600 to 1200 steps for `sigma_max=0.010` and
+`sigma_max=0.020`.
+
+| setting | step | eval | shifted | perturb | batch mix | temporal mix | core |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `sigma_max=0.010` | 600 | 7.8928 | +0.1047 | +0.0097 | +0.0335 | +0.0019 | pass |
+| `sigma_max=0.010` | 1200 | 7.7181 | -0.0139 | -0.0039 | +0.0229 | -0.0242 | fail |
+| `sigma_max=0.020` | 600 | 7.8460 | +0.0038 | +0.0072 | +0.0375 | -0.0013 | fail |
+| `sigma_max=0.020` | 1200 | 7.6759 | -0.0344 | +0.0164 | +0.0557 | -0.0142 | fail |
+
 ## Current Read
 
 The matrix argues against immediately rewriting the state-dependent path, but
-it is not a reliable global conclusion. It only shows that, at the current
-training horizon and model scale, amplitude is a real control variable: seed
-`906` passes the core gate at `sigma_max` `0.005` and `0.010`, then fails at
-`0.015` and `0.020`.
+it is not a reliable global conclusion. The horizon check is a direct warning:
+the seed `906` `sigma_max=0.010` rescue at 600 steps does not survive to 1200
+steps. Shifted-state damage flips from `+0.1047` to `-0.0139`, while temporal
+mix also becomes clearly negative.
 
 It does not close the robustness issue. Seed `904` passes the core gate at all
 tested amplitudes, but batch-mix and temporal-mix remain inconsistent. Seed
@@ -71,7 +84,9 @@ The result may interact with:
 - task/data mix: real-token query recall is a diagnostic task, not a full
   language-modeling claim.
 
-The next state-dependent candidate can use `sigma_max=0.01` only as a local
-probe setting. It should not replace fixed K=4 until it passes cross-seed,
-cross-horizon, and at least one scale check under the CRN core and robustness
-checks.
+State-dependent K=4 should stay behind fixed K=4 as a research branch. The next
+state-dependent experiment should not be another default-candidate run; it
+should inspect why time-shifted state can become less damaging after longer
+training. Plausible causes include the model leaning harder on token-local
+readout, the shifted intervention no longer matching the learned temporal
+geometry, or state-dependent noise disrupting persistent alignment.

@@ -174,6 +174,10 @@ Immediate next actions:
 - The sigma read is potentially confounded with training horizon and model
   scale. A 600-step medium local run can identify a sensitive control variable,
   but cannot establish a scale-independent default.
+- The first horizon check confirms that concern: seed `906` with
+  `sigma_max=0.010` passes the core gate at 600 steps but fails after
+  continuation to 1200 steps. The state-dependent branch now has a
+  horizon-instability issue, not just a sigma-selection issue.
 
 Exit criteria:
 
@@ -188,6 +192,9 @@ Exit criteria:
   real-token seeds, not only the fragile-seed matrix.
 - The selected range survives at least one longer-horizon check and one
   architecture-scale check before being treated as a default.
+- Shifted-state intervention remains destructive after longer training, or the
+  core gate is replaced by a documented temporal-geometry probe that better
+  matches the learned state protocol.
 - `plan.md` no longer depends on unresolved robustness before any long-running
   scale-up that claims stochastic latent robustness.
 

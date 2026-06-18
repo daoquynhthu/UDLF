@@ -60,6 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE", help="Override a JSON config key.")
     parser.add_argument("--summary", type=Path, default=Path("runs/udlf_state_probe_matrix_summary.json"))
     parser.add_argument("--check", action="store_true", help="Run check_state_probe.py after each seed.")
+    parser.add_argument("--print-json", action="store_true", help="Print the full summary JSON. Default prints one compact line.")
     parser.add_argument(
         "--check-profile",
         choices=["all", "core", "robustness", "structured", "structured-batch", "structured-temporal"],
@@ -124,7 +125,18 @@ def main(argv: list[str] | None = None) -> int:
 
     args.summary.parent.mkdir(parents=True, exist_ok=True)
     args.summary.write_text(json.dumps(summaries, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps(summaries, indent=2, sort_keys=True))
+    if args.print_json:
+        print(json.dumps(summaries, indent=2, sort_keys=True))
+    else:
+        core_failures = sum(
+            1
+            for row in summaries
+            if any(
+                row.get(key) is not None and row[key] < 0.02
+                for key in ("zero_delta", "swapped_delta", "shifted_delta", "inverted_delta")
+            )
+        )
+        print(f"state probe matrix rows={len(summaries)} core_failures={core_failures} summary={args.summary}")
     return 0
 
 
