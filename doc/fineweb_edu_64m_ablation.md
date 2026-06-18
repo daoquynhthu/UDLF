@@ -72,3 +72,22 @@ when `detach_state_between_segments=true`.
 At these measured throughputs, 3000 local steps are multi-day runs. Launching
 them is valid, but results should be monitored from `runs/*/metrics.jsonl`
 rather than expected in the same interactive turn.
+
+## Remote 4090 Sanity
+
+Remote data path:
+
+```text
+L:/NAIME_REMOTE/datasets/fineweb_edu_1b_ctx1024
+```
+
+The remote run uses the isolated UDLF workspace service. Checkpoints and
+metrics are under `L:\UDLF_REMOTE\runs`, not under the remote NAIME repository.
+
+| model | remote run | params | step | train loss | eval loss | tok/s | CUDA memory MB | result |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| UDLF | `udlf_fineweb_edu_64m_remote_sanity` | 68.1M | 1 | 10.8565 | 10.8625 | 42.691 | 1818.312 | pass |
+| Mamba | `mamba_fineweb_edu_64m_remote_sanity` | 63.7M | 1 | 10.9584 | 10.9560 | 61.787 | 2573.117 | pass |
+
+Next remote launch should use the same templates without the one-step
+overrides, with only `data_path` redirected to the remote dataset.

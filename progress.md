@@ -319,3 +319,9 @@ This file records concise action summaries only. Detailed planning belongs in
   `torch 2.11.0+cu128`, CUDA available, GPU `NVIDIA GeForce RTX 4090`.
 - Ran the full test suite on the remote 4090 workspace with
   `PYTHONPATH=src` and a UDLF-owned temp directory; `21 passed`.
+- Fixed the workspace train job argument handoff so `-Template` is parsed
+  correctly by `remote_workspace_train_job.py`.
+- Ran remote one-step 64M FineWeb-Edu sanity checks through the isolated HTTPS
+  workspace service. UDLF passed at 68.1M params with eval loss `10.8625`,
+  `42.691` tok/s, and `1818.312` MB CUDA memory. Mamba passed at 63.7M params
+  with eval loss `10.9560`, `61.787` tok/s, and `2573.117` MB CUDA memory.

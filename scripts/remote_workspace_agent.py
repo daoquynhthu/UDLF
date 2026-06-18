@@ -324,7 +324,6 @@ class WorkspaceState:
                 str(self.python),
                 "--run-dir",
                 str(run_dir),
-                "--",
                 *wrapper,
             ]
             return args, self.repo, True

@@ -36,8 +36,10 @@ Evidence:
 - Parameter calibration gives roughly matched 64M models after refitting UDLF
   to use `latent_dim=512` plus an untied output head: UDLF ~68.1M and Mamba
   ~63.7M.
-- One-step CUDA sanity passes for both templates, but measured throughput makes
-  the local 3000-step ablation multi-day.
+- One-step CUDA sanity passes for both templates locally and on the remote
+  RTX 4090. Remote sanity uses
+  `L:/NAIME_REMOTE/datasets/fineweb_edu_1b_ctx1024` and writes outputs under
+  `L:\UDLF_REMOTE\runs`.
 - The isolated remote 4090 workspace service is now installed and verified
   under `L:\UDLF_REMOTE`; the remaining risk is remote data-path/config
   correctness for the actual 3000-step launch.
@@ -46,14 +48,12 @@ Resolution plan:
 
 1. Run a one-step CUDA sanity check for each 64M config to catch OOM or config
    errors. Done.
-2. Finalize remote FineWeb-Edu data path mapping and remote 64M launch
-   configs without committing private paths.
-3. Run remote compile/import and one-step sanity checks through the HTTPS
-   workspace service.
-4. Launch the 3000-step UDLF and Mamba jobs with quiet console logging.
-5. Track step, train/eval loss, perplexity, throughput, CUDA memory, checkpoint
+2. Finalize the exact run names for the remote 3000-step pair.
+3. Launch the 3000-step UDLF and Mamba jobs with quiet console logging through
+   the HTTPS workspace service.
+4. Track step, train/eval loss, perplexity, throughput, CUDA memory, checkpoint
    status, and failures.
-6. Summarize the first complete or failed ablation in
+5. Summarize the first complete or failed ablation in
    `doc/fineweb_edu_64m_ablation.md`.
 
 Exit criteria:
