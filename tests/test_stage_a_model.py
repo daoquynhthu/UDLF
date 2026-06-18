@@ -93,7 +93,7 @@ def test_explicit_state_carry_matches_single_prefix_in_ode_mode():
     second_logits, _ = model.forward_prefix(input_ids[:, 2:], state=carried)
     segmented_logits = torch.cat([first_logits, second_logits], dim=1)
 
-    assert torch.allclose(full_logits, segmented_logits)
+    assert torch.allclose(full_logits, segmented_logits, atol=1e-5, rtol=1e-5)
 
 
 def test_mamba_lm_forward_shapes_and_loss():

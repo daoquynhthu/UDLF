@@ -245,6 +245,53 @@ Exit criteria:
 - `plan.md` no longer depends on unresolved robustness before any long-running
   scale-up that claims stochastic latent robustness.
 
+### Remote 4090 64M throughput was invalidly low
+
+Status: active.
+
+The first remote 64M sanity run proved that the isolated service, data path,
+checkpoint path, and CUDA environment work, but it did not prove the training
+schedule is acceptable. The UDLF run used a small-GPU micro-batch policy on a
+4090 and the model still performed latent readout vocabulary projection one
+token at a time. That makes the reported `42.691` tok/s a pipeline defect, not
+an architectural result.
+
+Resolution plan:
+
+1. Add NAIME-style automatic CUDA micro-batch probing using real
+   forward/backward/optimizer steps.
+2. Select the largest safe batch under a VRAM budget and automatically adjust
+   gradient accumulation to preserve the configured effective micro-batch
+   target.
+3. Vectorize UDLF readout across sequence positions so the output projection is
+   not dispatched once per token.
+4. Disable dynamics instrumentation for normal LLM-scale runs.
+5. Re-run short remote 4090 sanity for both UDLF and Mamba and record selected
+   batch, accumulation, memory, and tokens/second before relaunching the
+   3000-step ablation.
+6. Use measured VRAM anchors to estimate a safe candidate upper bound, then
+   binary-search the interval instead of relying on powers-of-two growth.
+   Apply a safety multiplier before running each candidate.
+7. Add a separate larger-candidate profile for UDLF batch `48/64` if we still
+   want to characterize the high end of the 4090 envelope.
+
+Exit criteria:
+
+- Remote `config.json` records auto-selected `batch_size` and adjusted
+  `grad_accum_steps`.
+- `train.log` records successful probe candidates and the selected batch.
+- A short remote sanity run reports throughput from normal train steps without
+  step-1 eval/checkpoint distortion.
+- The formal 3000-step jobs are relaunched only after this sanity gate passes.
+- Batch `64` is either skipped by prediction in the normal auto-batch path or
+  characterized separately under an explicit profiling run.
+- Probe accounting uses CUDA reserved memory, not only allocated memory, so
+  allocator reservation and fragmentation cannot be hidden behind a small
+  `max_memory_allocated` value.
+- Remote GPU is free of unrelated high-memory Python jobs before any formal
+  ablation run starts; otherwise throughput and selected batch are not valid
+  UDLF evidence.
+
 
 ## Resolved
 

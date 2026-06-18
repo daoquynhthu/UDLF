@@ -328,3 +328,27 @@ This file records concise action summaries only. Detailed planning belongs in
 - Launched the formal remote UDLF 64M FineWeb-Edu 3000-step run as workspace
   job `fc497e2628a045cbb244e4010d107391`, run directory
   `L:\UDLF_REMOTE\runs\udlf_fineweb_edu_64m_3000_remote`.
+- Cancelled the formal UDLF remote run before treating it as an experiment.
+  The measured throughput was not a meaningful 4090 run: the remote template
+  inherited a small-GPU micro-batch policy and the UDLF readout still executed
+  the vocabulary projection once per token.
+- Added NAIME-style automatic CUDA batch probing to the trainer. The probe runs
+  real forward/backward/optimizer steps on candidate micro-batches, respects a
+  configurable VRAM fraction, and then adjusts gradient accumulation to
+  preserve the target effective micro-batch count.
+- Vectorized UDLF latent readout across sequence positions and added a
+  `dynamics_diagnostics` switch so large LLM runs do not collect per-step
+  dynamics tensors unless explicitly requested.
+- Changed remote 4090 templates to enable auto-batch probing instead of
+  hard-coding the actual micro-batch.
+- First UDLF auto-batch probe on the remote 4090 successfully fit batches `4`,
+  `8`, `16`, and `32`; batch `32` used `7.52` GiB peak. A naive next-candidate
+  probe at `64` was too aggressive. The probe is being corrected to use a small
+  number of measured anchors, estimate a safe VRAM-derived upper bound, then
+  binary-search the candidate interval instead of selecting only powers of two.
+- Further remote probe debugging showed that UDLF memory is not smooth near
+  the high-batch boundary: batch `36` was stable, but nearby higher candidates
+  could push `nvidia-smi` used memory to almost the full card. The probe now
+  records CUDA reserved memory as well as allocated memory and uses the larger
+  value for selection. Remote testing is paused while non-UDLF Python processes
+  are using roughly half of the 4090 memory.

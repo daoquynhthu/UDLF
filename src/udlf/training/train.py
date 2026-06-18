@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import math
 import time
@@ -72,6 +73,22 @@ def _parameter_count(model: nn.Module) -> int:
 
 def _autocast_context(device: torch.device, enabled: bool):
     return torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=enabled and device.type == "cuda")
+
+
+def _build_model(train_config: UDLFTrainConfig, device: torch.device) -> tuple[nn.Module, Any]:
+    if train_config.architecture == "mamba":
+        model_config = train_config.mamba_config()
+        return MambaLMModel(model_config).to(device), model_config
+    model_config = train_config.model_config()
+    return UDLFStageAModel(model_config).to(device), model_config
+
+
+def _clear_cuda(device: torch.device) -> None:
+    gc.collect()
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+        if torch.cuda.is_initialized():
+            torch.cuda.reset_peak_memory_stats(device)
 
 
 def _sample_training_batch(dataset, batch_size: int, device: torch.device) -> tuple[torch.Tensor, torch.Tensor | None]:
@@ -185,6 +202,238 @@ def _forward_causal_lm(model: nn.Module, batch: torch.Tensor, loss_mask: torch.T
     logits = output.logits
     targets = batch[:, 1:]
     return _masked_sequence_loss(logits, targets, loss_mask, logits.shape[-1]), output.final_state
+
+
+def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, logger) -> None:
+    if not train_config.auto_batch:
+        return
+    if device.type != "cuda":
+        logger.info("auto-batch skipped: device is not cuda")
+        return
+
+    original_batch = train_config.batch_size
+    original_accum = train_config.grad_accum_steps
+    target_micro_batches = max(1, original_batch * original_accum)
+    free_bytes, total_bytes = torch.cuda.mem_get_info(device)
+    budget_bytes = int(free_bytes * train_config.vram_fraction)
+    selection_budget_bytes = int(budget_bytes * 0.95)
+    probe_budget_bytes = int(selection_budget_bytes * train_config.auto_batch_probe_budget_fraction)
+    upper = max(1, train_config.auto_batch_max)
+    best = 0
+    tried: dict[int, tuple[bool, int]] = {}
+
+    logger.info(
+        "auto-batch probing: gpu=%s total_vram=%.2fGiB free_vram=%.2fGiB budget=%.2fGiB select_budget=%.2fGiB probe_budget=%.2fGiB max_batch=%d",
+        torch.cuda.get_device_name(device),
+        total_bytes / 1024**3,
+        free_bytes / 1024**3,
+        budget_bytes / 1024**3,
+        selection_budget_bytes / 1024**3,
+        probe_budget_bytes / 1024**3,
+        upper,
+    )
+
+    def successful_points() -> list[tuple[int, int]]:
+        return sorted((batch, peak) for batch, (ok, peak) in tried.items() if ok and peak > 0)
+
+    def memory_model() -> tuple[float, float] | None:
+        successful = successful_points()
+        if len(successful) < 2:
+            return None
+        (b1, p1), (b2, p2) = successful[-2], successful[-1]
+        if b2 <= b1:
+            return None
+        slope = max(0.0, (p2 - p1) / (b2 - b1))
+        if slope <= 0:
+            return None
+        intercept = p2 - slope * b2
+        return intercept, slope
+
+    def predicted_peak_bytes(batch_size: int) -> int | None:
+        model = memory_model()
+        if model is None:
+            return None
+        intercept, slope = model
+        raw_prediction = max(0, int(intercept + slope * batch_size))
+        return int(raw_prediction * train_config.auto_batch_predict_safety)
+
+    def predicted_safe_cap() -> int:
+        model = memory_model()
+        if model is None:
+            return upper
+        intercept, slope = model
+        raw_budget = selection_budget_bytes / train_config.auto_batch_predict_safety
+        cap = math.floor((raw_budget - intercept) / slope)
+        cap = max(best, min(upper, cap))
+        logger.info(
+            "auto-batch predicted safe cap batch=%d intercept=%.2fGiB slope=%.3fGiB/batch safety=%.2f",
+            cap,
+            intercept / 1024**3,
+            slope / 1024**3,
+            train_config.auto_batch_predict_safety,
+        )
+        return cap
+
+    def should_probe_candidate(batch_size: int) -> bool:
+        predicted_peak = predicted_peak_bytes(batch_size)
+        if predicted_peak is None:
+            return True
+        if predicted_peak <= probe_budget_bytes:
+            return True
+        logger.info(
+            "auto-batch skip probe batch=%d predicted_peak=%.2fGiB safety=%.2f probe_budget=%.2fGiB",
+            batch_size,
+            predicted_peak / 1024**3,
+            train_config.auto_batch_predict_safety,
+            probe_budget_bytes / 1024**3,
+        )
+        return False
+
+    def try_batch(batch_size: int) -> tuple[bool, int]:
+        if batch_size in tried:
+            return tried[batch_size]
+
+        _clear_cuda(device)
+        model: nn.Module | None = None
+        optimizer: torch.optim.Optimizer | None = None
+        batch: torch.Tensor | None = None
+        loss = None
+        final_state = None
+        ok = False
+        peak = 0
+        peak_allocated = 0
+        peak_reserved = 0
+        logger.info("auto-batch probe start batch=%d", batch_size)
+        try:
+            model, _model_config = _build_model(train_config, device)
+            model.train()
+            optimizer = torch.optim.AdamW(model.parameters(), lr=train_config.learning_rate)
+            batch = torch.randint(0, train_config.vocab_size, (batch_size, train_config.seq_len), device=device)
+            generator = make_noise_generator(device, train_config.seed + 12345)
+            with _autocast_context(device, train_config.amp):
+                if isinstance(model, UDLFStageAModel):
+                    if train_config.segment_len > 0 and train_config.detach_state_between_segments:
+                        loss, final_state = _backward_segmented(
+                            model,
+                            batch,
+                            loss_mask=None,
+                            segment_len=train_config.segment_len,
+                            generator=generator,
+                            diagnostics=None,
+                            grad_scale=1.0,
+                        )
+                    else:
+                        loss, final_state = _forward_segmented(
+                            model,
+                            batch,
+                            loss_mask=None,
+                            segment_len=train_config.segment_len,
+                            generator=generator,
+                            detach_state_between_segments=train_config.detach_state_between_segments,
+                            diagnostics=None,
+                        )
+                        loss.backward()
+                else:
+                    loss, final_state = _forward_causal_lm(model, batch, None)
+                    loss.backward()
+            optimizer.step()
+            torch.cuda.synchronize(device)
+            peak_allocated = int(torch.cuda.max_memory_allocated(device))
+            peak_reserved = int(torch.cuda.max_memory_reserved(device))
+            peak = max(peak_allocated, peak_reserved)
+            ok = peak <= budget_bytes
+        except torch.OutOfMemoryError:
+            peak_allocated = int(torch.cuda.max_memory_allocated(device))
+            peak_reserved = int(torch.cuda.max_memory_reserved(device))
+            peak = max(peak_allocated, peak_reserved)
+            ok = False
+        except RuntimeError as exc:
+            if "out of memory" not in str(exc).lower():
+                raise
+            peak_allocated = int(torch.cuda.max_memory_allocated(device))
+            peak_reserved = int(torch.cuda.max_memory_reserved(device))
+            peak = max(peak_allocated, peak_reserved)
+            ok = False
+        finally:
+            del model, optimizer, batch, loss, final_state
+            _clear_cuda(device)
+
+        tried[batch_size] = (ok, peak)
+        logger.info(
+            "auto-batch probe batch=%d ok=%s peak=%.2fGiB allocated=%.2fGiB reserved=%.2fGiB",
+            batch_size,
+            ok,
+            peak / 1024**3,
+            peak_allocated / 1024**3,
+            peak_reserved / 1024**3,
+        )
+        return tried[batch_size]
+
+    failed_upper: int | None = None
+    first = min(max(1, original_batch), upper)
+    ok, peak = try_batch(first)
+    if ok and peak <= selection_budget_bytes:
+        best = first
+    else:
+        failed_upper = first
+        if ok:
+            logger.info(
+                "auto-batch first candidate batch=%d peak=%.2fGiB exceeds select_budget=%.2fGiB",
+                first,
+                peak / 1024**3,
+                selection_budget_bytes / 1024**3,
+            )
+
+    if best > 0 and best < upper:
+        anchor = min(upper, max(best + 1, best * 2))
+        if should_probe_candidate(anchor):
+            ok, peak = try_batch(anchor)
+            if ok and peak <= selection_budget_bytes:
+                best = anchor
+            else:
+                failed_upper = anchor
+                if ok:
+                    logger.info(
+                        "auto-batch anchor batch=%d peak=%.2fGiB exceeds select_budget=%.2fGiB",
+                        anchor,
+                        peak / 1024**3,
+                        selection_budget_bytes / 1024**3,
+                    )
+        else:
+            failed_upper = anchor
+
+    if failed_upper is not None:
+        high = failed_upper - 1
+    else:
+        high = predicted_safe_cap()
+    low = best + 1
+    while low <= high:
+        probe_high = high
+        if best > 0:
+            probe_high = min(probe_high, best + train_config.auto_batch_max_probe_increment)
+        mid = (low + probe_high) // 2
+        if not should_probe_candidate(mid):
+            break
+        ok, peak = try_batch(mid)
+        if ok and peak <= selection_budget_bytes:
+            best = mid
+            low = mid + 1
+        else:
+            high = mid - 1
+
+    if best <= 0:
+        logger.warning("auto-batch could not fit requested batch=%d; falling back to batch=1", original_batch)
+        best = 1
+    train_config.batch_size = best
+    if train_config.auto_adjust_grad_accum:
+        train_config.grad_accum_steps = max(1, math.ceil(target_micro_batches / best))
+    logger.info(
+        "auto-batch selected batch_size=%d grad_accum_steps=%d effective_micro_batches=%d original_effective_micro_batches=%d",
+        train_config.batch_size,
+        train_config.grad_accum_steps,
+        train_config.batch_size * train_config.grad_accum_steps,
+        target_micro_batches,
+    )
 
 
 def _dynamics_summary(diagnostics: dict[str, list[torch.Tensor]]) -> dict[str, float]:
@@ -469,12 +718,10 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
 
     set_seed(train_config.seed)
     device = resolve_device(train_config.device)
-    if train_config.architecture == "mamba":
-        model_config = train_config.mamba_config()
-        model = MambaLMModel(model_config).to(device)
-    else:
-        model_config = train_config.model_config()
-        model = UDLFStageAModel(model_config).to(device)
+    logger = setup_logger(run_dir, console_log_mode=train_config.console_log_mode)
+    _probe_auto_batch_size(train_config, device, logger)
+
+    model, model_config = _build_model(train_config, device)
     if train_config.compile_model:
         model = torch.compile(model)  # type: ignore[assignment]
 
@@ -504,7 +751,6 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
 
     noise_seed = train_config.noise_seed if train_config.noise_seed is not None else train_config.seed + 2
     noise_generator = make_noise_generator(device, noise_seed)
-    logger = setup_logger(run_dir, console_log_mode=train_config.console_log_mode)
     metric_logger = JsonlMetricLogger(
         run_dir / "metrics.jsonl",
         flush_every=train_config.metrics_flush_every,
@@ -541,7 +787,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
             final_state = None
             loss = None
             batch_tokens = 0
-            dynamics_diagnostics: dict[str, list[torch.Tensor]] = {}
+            dynamics_diagnostics: dict[str, list[torch.Tensor]] | None = {} if train_config.dynamics_diagnostics else None
             for accum_index in range(train_config.grad_accum_steps):
                 batch, loss_mask = _sample_training_batch(train_dataset, train_config.batch_size, device)
                 batch_tokens += train_config.batch_size * (batch.shape[1] - 1)
@@ -605,9 +851,11 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 assert final_state is not None
                 metrics["diffusion_mode"] = model_config.diffusion_mode
                 metrics["state_rms"] = float(final_state.detach().pow(2).mean().sqrt().cpu())
-            metrics.update(_dynamics_summary(dynamics_diagnostics))
+            if dynamics_diagnostics is not None:
+                metrics.update(_dynamics_summary(dynamics_diagnostics))
             if device.type == "cuda":
                 metrics["cuda_memory_allocated_mb"] = round(torch.cuda.max_memory_allocated(device) / (1024 * 1024), 3)
+                metrics["cuda_memory_reserved_mb"] = round(torch.cuda.max_memory_reserved(device) / (1024 * 1024), 3)
 
             save_best = False
             if train_config.eval_every > 0 and step % train_config.eval_every == 0:

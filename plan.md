@@ -463,12 +463,26 @@ Immediate implementation target:
   implemented using `E:/NAIME_DATA/datasets/fineweb_edu_1b_ctx1024`.
 - 3000-step ablation configs with compact console logs and file-backed metrics.
   Status: implemented; local one-step CUDA sanity checks passed; remote paths
-  and launch wrappers need final preflight before 3000-step launch.
+  and launch wrappers are verified. The first remote sanity exposed an invalid
+  low-throughput schedule, so formal launch is blocked on 4090 auto-batch
+  probing and a short throughput sanity run.
 - Isolated remote service under `L:\UDLF_REMOTE`, reusing
   `L:\NAIME_REMOTE\envs\.venv312` only. Status: installed and health/job smoke
   verified through SSH tunnel.
 - Clear comparison table: loss/perplexity, throughput, memory, stability, and
   checkpoint paths.
+
+Immediate performance gate before any 3000-step remote ablation:
+
+- Use NAIME-style real forward/backward probing on the 4090 to select the
+  largest safe micro-batch under `vram_fraction`.
+- Preserve the intended effective micro-batch count by automatically reducing
+  `grad_accum_steps` when the selected micro-batch grows.
+- Keep `dynamics_diagnostics=false` for LLM scale training unless a diagnostic
+  run explicitly enables it.
+- Confirm short-run UDLF and Mamba throughput from `metrics.jsonl`, not from a
+  one-step eval/checkpoint-heavy smoke run.
+- Do not restart the 3000-step ablation until this gate passes.
 
 Console policy for future local/remote experiments:
 

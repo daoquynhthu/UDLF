@@ -61,13 +61,16 @@ class UDLFStageAModel(nn.Module):
         if state is None:
             state = self.init_state(batch, device=input_ids.device, dtype=self.embedding.weight.dtype)
 
-        logits: list[Tensor] = []
+        states: list[Tensor] = []
+        token_embeds: list[Tensor] = []
         for t in range(steps):
             token_embed = self.embedding(input_ids[:, t])
             state = self.inject(state, token_embed)
             state = self.prior.euler_maruyama(state, token_embed, generator=generator, diagnostics=diagnostics)
-            logits.append(self.readout(state, token_embed, self.output_weight))
-        return torch.stack(logits, dim=1), state
+            states.append(state)
+            token_embeds.append(token_embed)
+        logits = self.readout(torch.stack(states, dim=1), torch.stack(token_embeds, dim=1), self.output_weight)
+        return logits, state
 
     def forward(
         self,

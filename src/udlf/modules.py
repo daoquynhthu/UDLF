@@ -134,6 +134,11 @@ class LatentReadout(nn.Module):
         self.bias = nn.Parameter(torch.zeros(config.vocab_size))
 
     def forward(self, state: Tensor, token_embed: Tensor, embedding_weight: Tensor) -> Tensor:
+        original_shape = state.shape[:-2]
+        if state.ndim < 3:
+            raise ValueError("state must have shape [..., slots, dim]")
+        state = state.reshape(-1, state.shape[-2], state.shape[-1])
+        token_embed = token_embed.reshape(-1, token_embed.shape[-1])
         mean_state = state.mean(dim=1)
         cond = self.condition(torch.cat([token_embed, mean_state], dim=-1))
         query_delta = self.query_delta(cond).view(-1, self.config.readout_heads, self.config.latent_dim)
@@ -144,4 +149,5 @@ class LatentReadout(nn.Module):
         heads = torch.einsum("bhm,bmd->bhd", weights, state)
         merged = self.merge(heads.flatten(start_dim=1))
         output_embed = self.to_embed(self.norm(merged))
-        return output_embed @ embedding_weight.T + self.bias
+        logits = output_embed @ embedding_weight.T + self.bias
+        return logits.reshape(*original_shape, self.config.vocab_size)

@@ -33,6 +33,13 @@ class UDLFTrainConfig:
     batch_size: int = 8
     max_steps: int = 20
     grad_accum_steps: int = 1
+    auto_batch: bool = False
+    auto_batch_max: int = 128
+    vram_fraction: float = 0.90
+    auto_batch_predict_safety: float = 1.35
+    auto_batch_probe_budget_fraction: float = 0.95
+    auto_batch_max_probe_increment: int = 8
+    auto_adjust_grad_accum: bool = True
     learning_rate: float = 1e-3
     weight_decay: float = 0.0
     beta1: float = 0.9
@@ -50,6 +57,7 @@ class UDLFTrainConfig:
     console_log_mode: str = "progress"
     eval_every: int = 0
     eval_batches: int = 4
+    dynamics_diagnostics: bool = True
     intervention_shift_tokens: int = 1
     intervention_pair_trials: int = 4
     intervention_perturb_std: float = 0.05
@@ -100,6 +108,16 @@ class UDLFTrainConfig:
             raise ValueError("batch_size must be >= 1")
         if self.grad_accum_steps < 1:
             raise ValueError("grad_accum_steps must be >= 1")
+        if self.auto_batch_max < 1:
+            raise ValueError("auto_batch_max must be >= 1")
+        if not 0.1 <= self.vram_fraction <= 0.98:
+            raise ValueError("vram_fraction must be between 0.1 and 0.98")
+        if self.auto_batch_predict_safety < 1.0:
+            raise ValueError("auto_batch_predict_safety must be >= 1.0")
+        if not 0.5 <= self.auto_batch_probe_budget_fraction <= 1.0:
+            raise ValueError("auto_batch_probe_budget_fraction must be between 0.5 and 1.0")
+        if self.auto_batch_max_probe_increment < 1:
+            raise ValueError("auto_batch_max_probe_increment must be >= 1")
         if self.seq_len < 2:
             raise ValueError("seq_len must be >= 2")
         if self.log_every < 1:

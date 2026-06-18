@@ -30,6 +30,9 @@ because `mamba_ssm`, `causal_conv1d`, and `triton` are not installed locally.
 - Console output is quiet by default.
 - Metrics, logs, checkpoints, and configs are written under ignored `runs/`.
 - Local RTX 5060 sanity uses micro-batch `1` with gradient accumulation `16`.
+- Remote RTX 4090 runs use automatic micro-batch probing. The configured
+  `batch_size * grad_accum_steps` is treated as the effective target, and the
+  real micro-batch is selected at launch from measured CUDA memory use.
 - UDLF uses `latent_dim=512` with an untied output head. This keeps total
   parameters near the 64M target without pushing the latent core width to the
   point where it cannot fit the local 8GB GPU.
@@ -86,8 +89,11 @@ metrics are under `L:\UDLF_REMOTE\runs`, not under the remote NAIME repository.
 
 | model | remote run | params | step | train loss | eval loss | tok/s | CUDA memory MB | result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| UDLF | `udlf_fineweb_edu_64m_remote_sanity` | 68.1M | 1 | 10.8565 | 10.8625 | 42.691 | 1818.312 | pass |
-| Mamba | `mamba_fineweb_edu_64m_remote_sanity` | 63.7M | 1 | 10.9584 | 10.9560 | 61.787 | 2573.117 | pass |
+| UDLF | `udlf_fineweb_edu_64m_remote_sanity` | 68.1M | 1 | 10.8565 | 10.8625 | 42.691 | 1818.312 | link pass only |
+| Mamba | `mamba_fineweb_edu_64m_remote_sanity` | 63.7M | 1 | 10.9584 | 10.9560 | 61.787 | 2573.117 | link pass only |
 
-Next remote launch should use the same templates without the one-step
-overrides, with only `data_path` redirected to the remote dataset.
+These runs only validate remote execution. They are not acceptable performance
+baselines because they used small-GPU scheduling and included step-1
+eval/checkpoint overhead. The next remote gate is a short auto-batch sanity run
+that records selected batch, accumulation, memory, and normal training
+tokens/second before any 3000-step launch.
