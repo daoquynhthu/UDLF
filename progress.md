@@ -133,3 +133,7 @@ This file records concise action summaries only. Detailed planning belongs in
   with seed `720`: `K in {1, 2, 4, 8}` all passed the core gate. Higher `K`
   improved eval loss and some intervention deltas, but throughput dropped
   sharply; K=1 was already effective and much faster.
+- Extended state-dependent K ablation for K=1 and K=4 to seeds `721`, `722`,
+  and `723`. Both passed the core gate across all seeds. K=4 produced stronger
+  shifted-state and robustness deltas, including consistently positive
+  attenuation, at roughly half the throughput of K=1.

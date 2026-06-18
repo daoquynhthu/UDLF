@@ -298,16 +298,16 @@ Completed:
   fixed diffusion, and state-dependent diffusion.
 - Ran a first state-dependent solver-step scan for `K in {1, 2, 4, 8}` on one
   query-recall seed.
+- Extended the state-dependent K=1 vs K=4 comparison to three additional
+  query-recall seeds.
 
 Next:
 
-- Carry ODE, fixed diffusion, and state-dependent diffusion into solver-step
-  ablations because all three passed the core gate.
+- Carry fixed diffusion into the K=1 vs K=4 comparison.
 - Treat fixed and state-dependent diffusion as stronger candidates for
   perturbation robustness, but do not claim attenuation robustness yet.
-- Extend solver-step ablations to multiple seeds and include fixed diffusion.
-- Decide whether K=4 or K=8 gives enough benefit over K=1/K=2 to justify the
-  runtime cost before any remote scale-up.
+- Decide whether state-dependent K=4's stronger robustness deltas justify its
+  runtime cost over K=1 before any remote scale-up.
 
 ## Phase 5: Remote 4090 Smoke and Scale-Up
 

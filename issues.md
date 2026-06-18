@@ -70,6 +70,9 @@ Resolution direction:
 - Compare K=1/2/4/8 across more seeds before deciding whether deeper solver
   integration is worth the runtime cost. The first state-dependent seed shows
   K=1 already works, while K=4/K=8 are stronger but slower.
+- State-dependent K=4 improved robustness deltas over K=1 across seeds
+  `721-723`, but roughly halves throughput. The next decision is whether fixed
+  diffusion shows the same pattern before picking a default.
 - Do not use attenuation as a blocking robustness gate until a structured
   attenuation probe is defined; current attenuation deltas are too close to
   zero and inconsistent.
