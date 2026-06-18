@@ -167,6 +167,13 @@ Immediate next actions:
   where `sigma_max=0.02` failed. This does not close the issue, but it turns
   the next resolution step into a sigma-range matrix rather than an immediate
   architecture rewrite.
+- The fragile-seed sigma matrix is complete for seeds `904` and `906`.
+  `sigma_max=0.01` is the best current state-dependent candidate, but it is not
+  a default: seed `904` still has weak perturbation, and temporal-mix remains
+  near zero.
+- The sigma read is potentially confounded with training horizon and model
+  scale. A 600-step medium local run can identify a sensitive control variable,
+  but cannot establish a scale-independent default.
 
 Exit criteria:
 
@@ -177,8 +184,10 @@ Exit criteria:
   requirement.
 - Any state-dependent replacement candidate passes both the core gate and the
   CRN robustness gate on real-token seeds, not only on synthetic query recall.
-- The state-dependent sigma range is selected from a documented local matrix,
-  including fragile seeds `904` and `906`, rather than from a single rescue run.
+- The selected state-dependent sigma range is confirmed on at least three
+  real-token seeds, not only the fragile-seed matrix.
+- The selected range survives at least one longer-horizon check and one
+  architecture-scale check before being treated as a default.
 - `plan.md` no longer depends on unresolved robustness before any long-running
   scale-up that claims stochastic latent robustness.
 
