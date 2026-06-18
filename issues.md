@@ -152,13 +152,17 @@ Immediate next actions:
   remains useful and simpler, but it is no longer the strongest robustness
   candidate from the current evidence.
 - Real-token state-dependent K=4 does not yet transfer cleanly. Seeds
-  `903-905` all pass the core gate, but robustness is inconsistent: seed `904`
-  has significantly negative batch-mix, and seed `905` has perturbation CI
-  crossing zero. Do not promote state-dependent diffusion to default from
-  synthetic CRN evidence alone.
+  `903-905` pass the core gate but have inconsistent robustness, while seed
+  `906` fails the core shifted-state threshold (`+0.0038 < +0.0200`) despite
+  positive perturb and batch-mix CIs. Do not promote state-dependent diffusion
+  to default from synthetic CRN evidence alone.
 - Do not expand this issue with more raw observations unless they change the
   decision or close one of the resolution-plan steps.
 - Keep Phase 5 remote smoke scoped to fixed K=4 real-token query recall.
+- Before running more identical state-dependent real-token confirmations,
+  inspect whether the state-dependent parameterization or regularization is
+  underconstrained. A small controlled variant is more informative than simply
+  adding seed `907`.
 
 Exit criteria:
 
@@ -167,6 +171,8 @@ Exit criteria:
 - Fixed K=4 or a replacement default passes that gate on at least three seeds,
   or the project explicitly downgrades robustness from a Stage A acceptance
   requirement.
+- Any state-dependent replacement candidate passes both the core gate and the
+  CRN robustness gate on real-token seeds, not only on synthetic query recall.
 - `plan.md` no longer depends on unresolved robustness before any long-running
   scale-up that claims stochastic latent robustness.
 

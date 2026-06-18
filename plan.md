@@ -428,7 +428,16 @@ Acceptance criteria:
 ## Current Priority
 
 Use the local RTX 5060 for medium-scale validation before remote scale-up. The
-immediate priority is to extend state-dependent K=4 real-token query-recall
-confirmation beyond seed `903`, with CRN paired intervention metrics and
-dynamics instrumentation. Remote 4090 work should wait until the local framework
-and robustness gates are cleaner.
+state-dependent K=4 real-token transfer check has exposed a core-gate failure
+on seed `906`, so the immediate priority is no longer more identical
+confirmation seeds. Next work should inspect the state-dependent
+parameterization and run a small controlled variant before promoting it again.
+Remote 4090 work should stay scoped to fixed K=4 smoke/infrastructure until the
+local robustness and core-gate evidence is cleaner.
+
+Console policy for future local/remote experiments:
+
+- Training configs should use `console_log_mode="quiet"` for long runs unless
+  interactive debugging needs live step logs.
+- Evaluators and checkers should keep their default compact one-line output.
+  Full JSON should be written to files and printed only with `--print-json`.

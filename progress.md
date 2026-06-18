@@ -241,3 +241,9 @@ This file records concise action summaries only. Detailed planning belongs in
   quiet console logging. Core gate passed. Batch-mix and temporal-mix were
   positive with non-crossing CIs, but perturbation remained near zero with CI
   crossing zero (`+0.0011`, CI `[-0.0017,+0.0040]`).
+- Ran local 5060 state-dependent K=4 real-token seed `906` to 600 steps with
+  quiet console logging. CRN eval completed, but the core profile failed:
+  shifted-state delta was only `+0.0038` against the `+0.0200` threshold.
+  Perturb and batch-mix were positive with non-crossing CIs, while temporal-mix
+  crossed zero. This downgrades state-dependent real-token K=4 from "core
+  stable, robustness mixed" to "not yet a replacement default".

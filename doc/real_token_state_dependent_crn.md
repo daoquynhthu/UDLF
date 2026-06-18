@@ -23,11 +23,14 @@ replace the fixed K=4 smoke candidate yet.
 | 903 | 8.0441 | +2.0290 | +0.0959 | +0.0599 | +0.4432 | +0.0309 | [+0.0279, +0.0338] | +0.0181 | [+0.0173, +0.0190] | +0.0048 | [+0.0020, +0.0076] | pass |
 | 904 | 7.7770 | +3.5729 | +0.2056 | +0.0531 | +0.7786 | +0.0030 | [-0.0018, +0.0078] | -0.0077 | [-0.0106, -0.0047] | +0.0011 | [-0.0018, +0.0039] | pass |
 | 905 | 7.7436 | +1.3149 | +0.1575 | +0.0678 | +0.7344 | +0.0011 | [-0.0017, +0.0040] | +0.0129 | [+0.0095, +0.0163] | +0.0044 | [+0.0023, +0.0065] | pass |
+| 906 | 7.8460 | +0.9429 | +0.1886 | +0.0038 | +0.7039 | +0.0072 | [+0.0028, +0.0115] | +0.0375 | [+0.0328, +0.0421] | -0.0013 | [-0.0047, +0.0021] | fail |
 
 ## Current Read
 
-All three state-dependent real-token runs pass the core gate. Robustness is
-mixed:
+State-dependent real-token K=4 does not transfer cleanly enough to replace the
+fixed K=4 default. The evidence is now weaker than "core stable, robustness
+mixed": seed `906` fails the core shifted-state threshold even though zero,
+swapped, and inverted interventions remain strongly destructive.
 
 - Seed `903` supports the synthetic CRN result across perturb, batch-mix, and
   temporal-mix.
@@ -35,7 +38,10 @@ mixed:
   interval.
 - Seed `905` has positive batch-mix and temporal-mix, but perturbation is too
   close to zero and its interval crosses zero.
+- Seed `906` has positive perturbation and batch-mix intervals, but fails the
+  core shifted-state gate and has temporal-mix CI crossing zero.
 
-State-dependent diffusion cannot yet replace fixed K=4 as the default. It
-remains a robustness candidate that needs more seeds and a clearer structured
-gate.
+The next useful experiment is not simply another identical seed. The immediate
+decision point is whether the state-dependent path needs a parameterization or
+regularization change before more real-token confirmation, while fixed K=4
+remains the smoke/default candidate.
