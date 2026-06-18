@@ -156,3 +156,11 @@ This file records concise action summaries only. Detailed planning belongs in
   Fixed K=4 is the current pragmatic default candidate: it is simpler than
   state-dependent diffusion, has strong synthetic margins, and has already
   been confirmed stable on real saved-token training.
+- Added a `real_query_recall` data task that builds query-recall sequences from
+  saved token rows, giving real-token experiments a known state target instead
+  of relying on plain next-token intervention signals.
+- Ran fixed K=4 real-token query recall with seed `900`. At 200 steps, training
+  was stable but core intervention did not pass. After resuming to 600 steps,
+  eval loss was `7.736` and the core gate passed: zero `+4.726`, swapped
+  `+0.139`, shifted `+0.068`, inverted `+0.673`. Robustness still failed:
+  perturbation and attenuation deltas were slightly negative.

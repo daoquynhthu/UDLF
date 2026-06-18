@@ -7,7 +7,7 @@ from typing import Any
 
 import torch
 
-from udlf.data import QueryRecallDataset, RepeatingPatternDataset, TokenDatasetFromDisk
+from udlf.data import QueryRecallDataset, RealTokenQueryRecallDataset, RepeatingPatternDataset, TokenDatasetFromDisk
 from udlf.training.config import UDLFTrainConfig
 
 
@@ -35,6 +35,27 @@ def make_noise_generator(device: torch.device, seed: int) -> torch.Generator:
 
 def build_datasets(config: UDLFTrainConfig):
     if config.data_path:
+        if config.data_task == "real_query_recall":
+            return (
+                RealTokenQueryRecallDataset(
+                    config.data_path,
+                    split=config.train_split,
+                    seq_len=config.seq_len,
+                    vocab_size=config.vocab_size,
+                    seed=config.seed + 1,
+                    column=config.data_column,
+                ),
+                RealTokenQueryRecallDataset(
+                    config.data_path,
+                    split=config.validation_split,
+                    seq_len=config.seq_len,
+                    vocab_size=config.vocab_size,
+                    seed=config.seed + 10_000,
+                    column=config.data_column,
+                ),
+            )
+        if config.data_task != "next_token":
+            raise ValueError(f"unknown data_task={config.data_task!r}")
         train_dataset = TokenDatasetFromDisk(
             config.data_path,
             split=config.train_split,

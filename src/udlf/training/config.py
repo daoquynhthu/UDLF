@@ -22,6 +22,7 @@ class UDLFTrainConfig:
     compile_model: bool = False
 
     data_path: str = ""
+    data_task: str = "next_token"
     train_split: str = "train"
     validation_split: str = "validation"
     data_column: str = "input_ids"

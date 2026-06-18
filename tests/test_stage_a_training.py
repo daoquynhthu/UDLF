@@ -5,7 +5,7 @@ import json
 import torch
 from datasets import Dataset, DatasetDict
 
-from udlf.data import QueryRecallDataset, RepeatingPatternDataset, TokenDatasetFromDisk
+from udlf.data import QueryRecallDataset, RealTokenQueryRecallDataset, RepeatingPatternDataset, TokenDatasetFromDisk
 from udlf.training.config import train_config_from_dict
 from udlf.training.train import run_stage_a
 
@@ -160,3 +160,28 @@ def test_query_recall_dataset_masks_query_answer_targets():
         memory_index = query_token - dataset.query_base
         assert 0 <= memory_index < dataset.memory_len
         assert answer_token == int(batch[0, memory_index].item())
+
+
+def test_real_token_query_recall_dataset_uses_saved_tokens(tmp_path):
+    dataset_path = tmp_path / "real_tokens"
+    DatasetDict(
+        {
+            "train": Dataset.from_dict({"input_ids": [[11, 12, 13, 14, 15, 16], [21, 22, 23, 24, 25, 26]]}),
+            "validation": Dataset.from_dict({"input_ids": [[31, 32, 33, 34, 35, 36]]}),
+        }
+    ).save_to_disk(str(dataset_path))
+    dataset = RealTokenQueryRecallDataset(str(dataset_path), "train", seq_len=12, vocab_size=64, seed=1)
+
+    batch = dataset.sample(batch_size=2)
+    mask = dataset.loss_mask(batch_size=2)
+
+    assert batch.shape == (2, 12)
+    assert mask.shape == (2, 11)
+    assert dataset.intervention_split() == dataset.memory_len
+    for row_index in range(batch.shape[0]):
+        for position in mask[row_index].nonzero().flatten().tolist():
+            query_token = int(batch[row_index, position].item())
+            answer_token = int(batch[row_index, position + 1].item())
+            memory_index = query_token - dataset.query_base
+            assert 0 <= memory_index < dataset.memory_len
+            assert answer_token == int(batch[row_index, memory_index].item())
