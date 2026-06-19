@@ -451,3 +451,11 @@ This file records concise action summaries only. Detailed planning belongs in
   reselected batch `64`, and wrote step `510` normally at about `4599.7`
   tokens/s with empty stderr. The eval-resource fix still needs direct
   confirmation at the next eval boundary, step `1000`.
+- Remote job `4dc7082c813d471180f5045d09c8e1cc` completed successfully at
+  step `3000`. The run contains `3000` unique metric steps, no NaN or Inf
+  numeric metrics, final train loss `5.0348`, final eval loss `5.0028`, final
+  eval perplexity `148.84`, and last-100 mean throughput about `4943.3`
+  tokens/s. Eval rows at steps `1000`, `1500`, `2000`, `2500`, and `3000`
+  all record `eval_batch_size=8` and `eval_segment_len=64`, confirming the
+  eval-resource fix. The older step-500 eval row remains pre-fix and lacks
+  those fields.

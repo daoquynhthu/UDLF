@@ -366,42 +366,19 @@ Exit criteria:
   ablation run starts; otherwise throughput and selected batch are not valid
   UDLF evidence.
 
+## Resolved
+
 ### UDLF eval inherited the auto-selected training batch
 
-Status: active.
+Resolved on 2026-06-19.
 
-The contended 4090 3000-step UDLF run reached step `490` normally at roughly
-`4770` tokens/s, then failed to emit step `500` metrics for about half an hour.
-At inspection time, stderr was empty, GPU utilization was `100%`, VRAM had only
-`444` MB free, and both `train.log` and `metrics.jsonl` were still at step
-`490`. This points to the step-500 train/eval boundary, not a completed eval
-whose logging was merely delayed.
-
-Root cause: `_evaluate_loss` hard-coded UDLF `segment_len=0` and used
-`train_config.batch_size`. After remote auto-batch selected batch `64`, eval
-therefore ran a full-sequence, non-segmented UDLF forward path at the largest
-training micro-batch. That path is outside the resource envelope proven by
-training.
-
-Resolution plan:
-
-1. Add an explicit `eval_batch_size` config field.
-2. Make UDLF eval reuse the configured `segment_len` unless a later exact eval
-   mode is deliberately added.
-3. Record `eval_batch_size` and `eval_segment_len` in every eval metrics row.
-4. Relaunch the remote run from `latest.pt` with `eval_batch_size=8` and
-   verify that step `500` completes quickly before treating the resumed run as
-   valid.
-
-Exit criteria:
-
-- Local stage-a training tests pass.
-- The remote resumed run emits step `500` metrics containing
-  `eval_batch_size=8` and `eval_segment_len=64`.
-- GPU memory remains within the configured budget during the first eval.
-- No new long-run launch uses auto-batch without an explicit eval batch budget.
-
-## Resolved
+The contended 4090 run initially reached step `490` normally and then stalled
+at the step-500 eval boundary because `_evaluate_loss` used the auto-selected
+training batch `64` while hard-coding UDLF `segment_len=0`. The trainer now has
+an explicit `eval_batch_size`, UDLF eval reuses the configured `segment_len`,
+and metrics record both values. The resumed remote 3000-step run completed
+successfully; eval rows at steps `1000`, `1500`, `2000`, `2500`, and `3000`
+all used `eval_batch_size=8` and `eval_segment_len=64`.
 
 ### Stage A training harness missing checkpoint and intervention infrastructure
 
