@@ -54,6 +54,10 @@ Evidence:
   target on the RTX 5060, reaching more than `2400` tokens/s in a short
   auto-batch run. This is a real engineering speedup but changes integration
   granularity, so quality and stability must be checked explicitly.
+- A 20-step local solver `2` versus solver `4` quality/stability gate matched
+  early train/eval loss and sampled stability diagnostics. This reduces the
+  immediate risk of the solver-step change, but the remote short run and longer
+  quality trajectory are still required before the 3000-step ablation.
 
 Resolution plan:
 
@@ -67,12 +71,14 @@ Resolution plan:
    64M throughput is close enough to the NAIME reference to justify remote
    3000-step runs. Local throughput gate passes with `solver_steps=2`; remote
    validation pending.
-5. Finalize the exact run names for the remote 3000-step pair.
-6. Launch the 3000-step UDLF and Mamba jobs with quiet console logging through
+5. Validate solver `2` on a remote short run once the 4090 is free, including
+   throughput, eval loss, and stability diagnostics.
+6. Finalize the exact run names for the remote 3000-step pair.
+7. Launch the 3000-step UDLF and Mamba jobs with quiet console logging through
    the HTTPS workspace service.
-7. Track step, train/eval loss, perplexity, throughput, CUDA memory, checkpoint
+8. Track step, train/eval loss, perplexity, throughput, CUDA memory, checkpoint
    status, and failures.
-8. Summarize the first complete or failed ablation in
+9. Summarize the first complete or failed ablation in
    `doc/fineweb_edu_64m_ablation.md`.
 
 Exit criteria:

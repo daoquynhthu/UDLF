@@ -413,3 +413,10 @@ This file records concise action summaries only. Detailed planning belongs in
   compile smoke succeeded, but first compile took roughly 227 seconds and its
   run metrics were dominated by compile time. Compile remains a possible long
   run optimization, not a fast local iteration path.
+- Ran local UDLF 64M solver-step quality/stability gate: solver `4` versus
+  solver `2`, same seed/data/batch, 20 steps, eval at steps `10` and `20`, and
+  stability diagnostics every `10` steps. The two settings matched closely on
+  train loss, eval loss, grad norm, state RMS, injection finite-difference
+  gain, drift finite-difference gain, and FTLE proxy. No NaN or Inf values were
+  found. The result supports using solver `2` for the next remote short
+  throughput/quality gate, but does not yet prove full long-run equivalence.

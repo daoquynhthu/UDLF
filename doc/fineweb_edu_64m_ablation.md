@@ -97,3 +97,34 @@ baselines because they used small-GPU scheduling and included step-1
 eval/checkpoint overhead. The next remote gate is a short auto-batch sanity run
 that records selected batch, accumulation, memory, and normal training
 tokens/second before any 3000-step launch.
+
+## Local Solver-Step Quality Gate
+
+After profiling showed recurrent solver dispatch as the dominant UDLF
+throughput limiter, the UDLF 64M template was changed from `solver_steps=4` to
+`solver_steps=2`. This changes integration granularity, so the first local
+quality gate compares the two settings with the same data path, seed,
+micro-batch, and evaluation cadence.
+
+Configuration:
+
+- Dataset: `E:/NAIME_DATA/datasets/fineweb_edu_1b_ctx1024`
+- Model: UDLF 64M config, `seq_len=512`, fixed diffusion
+- Batch: `24`, grad accumulation `1`
+- Steps: `20`
+- Eval: every `10` steps, `2` batches
+- Diagnostics: stability diagnostics every `10` steps; dynamics diagnostics off
+- Checkpoint cadence: latest/save disabled; best checkpoint written only on eval
+
+| solver | step | train loss | eval loss | eval ppl | grad norm | state RMS | inj fd gain | drift fd gain | FTLE proxy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 4 | 10 | 10.79 | 10.77 | 47588.94 | 0.88 | 0.85 | 204.30 | 0.26 | -0.25 |
+| 4 | 20 | 10.40 | 10.36 | 31625.71 | 1.66 | 0.86 | 200.92 | 0.26 | -0.25 |
+| 2 | 10 | 10.78 | 10.77 | 47432.44 | 0.90 | 0.85 | 204.30 | 0.26 | -0.26 |
+| 2 | 20 | 10.40 | 10.37 | 31833.89 | 1.66 | 0.86 | 201.07 | 0.26 | -0.26 |
+
+No NaN or Inf values were found in either metrics file. On this short local
+gate, solver `2` matches solver `4` on early loss trajectory and the sampled
+stability diagnostics while preserving the throughput gain. This is not yet a
+full equivalence claim; it is enough to keep solver `2` as the current
+performance configuration for the next remote short-run gate.
