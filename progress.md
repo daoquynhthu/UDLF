@@ -428,3 +428,9 @@ This file records concise action summaries only. Detailed planning belongs in
   CUDA Torch environment. The only successful install path used
   `MAMBA_SKIP_CUDA_BUILD=TRUE`, which leaves `selective_scan_cuda` absent, so
   official `Mamba` cannot run locally yet.
+- Launched the contended remote UDLF 64M FineWeb-Edu 3000-step run through the
+  isolated workspace service as job `e315edf9ea04431c9920ea16e7f27302`, run
+  directory `L:\UDLF_REMOTE\runs\udlf_fineweb_edu_64m_3000_solver2_contended`.
+  Auto-batch selected batch `64`, grad accumulation `1`, effective batch `64`.
+  At step `10`, metrics reported loss `10.7655`, `4491.5` tokens/s,
+  `10533.896` MB CUDA allocated, and `11246.0` MB CUDA reserved.
