@@ -90,6 +90,53 @@ Exit criteria:
 - Short local and remote throughput sanity runs record selected batch,
   accumulation, effective batch, reserved memory, and tokens/s in metrics.
 
+### Official Mamba baseline is not locally runnable on Windows yet
+
+Status: open.
+
+Blocker classification:
+
+- This blocks replacing the current hand-written PyTorch Mamba baseline with a
+  valid official high-performance comparison on the local Windows machine.
+- It does not block UDLF-only local work, but it blocks any Mamba throughput or
+  quality comparison from being treated as mature evidence.
+
+Evidence:
+
+- Official `state-spaces/mamba` was downloaded under
+  `artifacts/vendor/mamba` at commit `0048fbf`.
+- Current official main requires the newer dependency chain including
+  `tilelang==0.1.8`; installing from main failed on local Windows/Python 3.14
+  because the dependency metadata was inconsistent on the package index.
+- Stable official `mamba-ssm==2.2.6.post3` avoids the `tilelang` chain, but
+  PyPI has no Windows binary wheel for the local environment.
+- `triton-windows==3.5.1.post24` installs and provides `import triton`, but
+  pip metadata still does not satisfy the official dependency name `triton`.
+- A local Python 3.12 venv at `.venv_mamba_official` can install CUDA Torch and
+  `triton-windows`; `mamba-ssm` only installs with
+  `MAMBA_SKIP_CUDA_BUILD=TRUE`, which leaves `selective_scan_cuda` missing.
+  Importing `from mamba_ssm import Mamba` then fails with
+  `ModuleNotFoundError: No module named 'selective_scan_cuda'`.
+
+Resolution plan:
+
+1. Do not use the hand-written PyTorch Mamba implementation as the final
+   baseline.
+2. Prefer a Linux/CUDA environment or a known-good prebuilt `mamba-ssm` wheel
+   for the official baseline.
+3. If staying on Windows, install a complete MSVC/CUDA extension build chain
+   and verify `selective_scan_cuda` builds before integrating it.
+4. Only after `from mamba_ssm import Mamba` and a CUDA forward smoke pass should
+   the training harness add the official Mamba architecture path.
+
+Exit criteria:
+
+- `mamba_ssm`, `selective_scan_cuda`, and optional `causal_conv1d` import in
+  the chosen environment.
+- A CUDA forward smoke using official `Mamba` succeeds.
+- The 64M baseline config uses the official module and records its package
+  version/environment.
+
 ### Stage A robustness gate is not passing yet
 
 Status: open.

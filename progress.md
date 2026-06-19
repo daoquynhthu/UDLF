@@ -420,3 +420,11 @@ This file records concise action summaries only. Detailed planning belongs in
   gain, drift finite-difference gain, and FTLE proxy. No NaN or Inf values were
   found. The result supports using solver `2` for the next remote short
   throughput/quality gate, but does not yet prove full long-run equivalence.
+- Downloaded the official `state-spaces/mamba` repository to
+  `artifacts/vendor/mamba` at commit `0048fbf` and attempted local Windows
+  installation. Current main failed on the `tilelang==0.1.8` dependency chain.
+  Stable `mamba-ssm==2.2.6.post3` plus `triton-windows` was tested in both the
+  current Python 3.14 environment and a new `.venv_mamba_official` Python 3.12
+  CUDA Torch environment. The only successful install path used
+  `MAMBA_SKIP_CUDA_BUILD=TRUE`, which leaves `selective_scan_cuda` absent, so
+  official `Mamba` cannot run locally yet.
