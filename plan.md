@@ -501,8 +501,9 @@ Immediate implementation target:
 - 3000-step ablation configs with compact console logs and file-backed metrics.
   Status: implemented; local one-step CUDA sanity checks passed; remote paths
   and launch wrappers are verified. The first remote sanity exposed an invalid
-  low-throughput schedule, so formal launch is blocked on 4090 auto-batch
-  probing and a short throughput sanity run.
+  low-throughput schedule. Local UDLF throughput now passes the reference
+  target with `solver_steps=2`; formal launch is still blocked on remote 4090
+  auto-batch validation and a short throughput sanity run.
 - Isolated remote service under `L:\UDLF_REMOTE`, reusing
   `L:\NAIME_REMOTE\envs\.venv312` only. Status: installed and health/job smoke
   verified through SSH tunnel.
@@ -523,6 +524,12 @@ Immediate performance gate before any 3000-step remote ablation:
 - Treat CPU as a test-only escape hatch. Real training configs must use CUDA
   and the trainer rejects non-CUDA devices unless `allow_cpu_training=true` is
   set explicitly.
+- Use the solver-2 UDLF 64M template as the current performance configuration.
+  Treat it as a changed integration granularity and validate quality/stability
+  against the earlier solver-4 behavior.
+- Replace the hand-written pure PyTorch Mamba baseline with an official or
+  otherwise kernel-accelerated implementation before using it as the comparison
+  baseline.
 - Confirm short-run UDLF and Mamba throughput from `metrics.jsonl`, not from a
   one-step eval/checkpoint-heavy smoke run.
 - Do not restart the 3000-step ablation until this gate passes.

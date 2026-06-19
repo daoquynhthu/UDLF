@@ -395,3 +395,21 @@ This file records concise action summaries only. Detailed planning belongs in
   `24`, accumulation `1`, and averaged about `842` tokens/s under
   `vram_fraction=0.90`; metrics now include `batch_size`,
   `grad_accum_steps`, and `effective_batch_size`.
+- Profiled a real UDLF 64M train step. The hot spot is launch overhead and
+  small-op count, not a single slow matmul: even a shorter seq-128 profile
+  produced about `64k` CUDA launches, with CPU launch overhead comparable to
+  total CUDA compute time.
+- Tested UDLF `solver_steps` as the dominant dispatch multiplier. On the local
+  RTX 5060, batch `28` improved from about `1024` tokens/s at solver `4` to
+  about `3291` tokens/s at solver `2`; solver `1` did not improve further.
+  An auto-batch solver-2 probe selected batch `34` and reached `2425.7`
+  tokens/s by step 3 before final checkpoint writing failed because E: was
+  nearly full.
+- Updated the UDLF 64M FineWeb-Edu template to use `solver_steps=2`. This is
+  the current performance configuration; it still needs quality/stability
+  validation before being treated as methodologically equivalent to solver 4.
+- Checked remote compile viability. Remote `.venv312` has Python `3.12.10`,
+  Torch `2.11.0+cu128`, CUDA, `torch.compile`, and Triton installed. A small
+  compile smoke succeeded, but first compile took roughly 227 seconds and its
+  run metrics were dominated by compile time. Compile remains a possible long
+  run optimization, not a fast local iteration path.

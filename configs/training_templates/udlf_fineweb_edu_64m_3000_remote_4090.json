@@ -33,7 +33,7 @@
   "ff_multiplier": 4,
   "latent_heads": 8,
   "readout_heads": 8,
-  "solver_steps": 4,
+  "solver_steps": 2,
   "diffusion_mode": "fixed",
   "fixed_sigma": 0.01,
   "segment_len": 64,

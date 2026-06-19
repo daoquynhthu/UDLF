@@ -49,6 +49,11 @@ Evidence:
   originally selected only batch `10`. The pure PyTorch Mamba baseline is much
   worse because it uses a Python per-token selective scan and is not a valid
   high-performance Mamba comparison yet.
+- Profiling showed the main UDLF performance limiter is recurrent dispatch
+  count. Reducing `solver_steps` from `4` to `2` crosses the local throughput
+  target on the RTX 5060, reaching more than `2400` tokens/s in a short
+  auto-batch run. This is a real engineering speedup but changes integration
+  granularity, so quality and stability must be checked explicitly.
 
 Resolution plan:
 
@@ -60,7 +65,8 @@ Resolution plan:
    a performance comparison.
 4. Profile and reduce UDLF per-token/per-solver dispatch overhead until local
    64M throughput is close enough to the NAIME reference to justify remote
-   3000-step runs.
+   3000-step runs. Local throughput gate passes with `solver_steps=2`; remote
+   validation pending.
 5. Finalize the exact run names for the remote 3000-step pair.
 6. Launch the 3000-step UDLF and Mamba jobs with quiet console logging through
    the HTTPS workspace service.
