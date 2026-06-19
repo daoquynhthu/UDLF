@@ -330,14 +330,6 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
         intercept = p2 - slope * b2
         return intercept, slope
 
-    def predicted_peak_bytes(batch_size: int) -> int | None:
-        model = memory_model()
-        if model is None:
-            return None
-        intercept, slope = model
-        raw_prediction = max(0, int(intercept + slope * batch_size))
-        return int(raw_prediction * train_config.auto_batch_predict_safety)
-
     def predicted_safe_cap() -> int:
         model = memory_model()
         if model is None:
@@ -354,21 +346,6 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
             train_config.auto_batch_predict_safety,
         )
         return cap
-
-    def should_probe_candidate(batch_size: int) -> bool:
-        predicted_peak = predicted_peak_bytes(batch_size)
-        if predicted_peak is None:
-            return True
-        if predicted_peak <= probe_budget_bytes:
-            return True
-        logger.info(
-            "auto-batch skip probe batch=%d predicted_peak=%.2fGiB safety=%.2f probe_budget=%.2fGiB",
-            batch_size,
-            predicted_peak / 1024**3,
-            train_config.auto_batch_predict_safety,
-            probe_budget_bytes / 1024**3,
-        )
-        return False
 
     def try_batch(batch_size: int) -> tuple[bool, int]:
         if batch_size in tried:
@@ -467,34 +444,30 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
 
     if best > 0 and best < upper:
         anchor = min(upper, max(best + 1, best * 2))
-        if should_probe_candidate(anchor):
-            ok, peak = try_batch(anchor)
-            if ok and peak <= selection_budget_bytes:
-                best = anchor
-            else:
-                failed_upper = anchor
-                if ok:
-                    logger.info(
-                        "auto-batch anchor batch=%d peak=%.2fGiB exceeds select_budget=%.2fGiB",
-                        anchor,
-                        peak / 1024**3,
-                        selection_budget_bytes / 1024**3,
-                    )
+        ok, peak = try_batch(anchor)
+        if ok and peak <= selection_budget_bytes:
+            best = anchor
         else:
             failed_upper = anchor
+            if ok:
+                logger.info(
+                    "auto-batch anchor batch=%d peak=%.2fGiB exceeds select_budget=%.2fGiB",
+                    anchor,
+                    peak / 1024**3,
+                    selection_budget_bytes / 1024**3,
+                )
 
     if failed_upper is not None:
         high = failed_upper - 1
     else:
-        high = predicted_safe_cap()
+        predicted_safe_cap()
+        high = upper
     low = best + 1
     while low <= high:
         probe_high = high
         if best > 0:
             probe_high = min(probe_high, best + train_config.auto_batch_max_probe_increment)
         mid = (low + probe_high) // 2
-        if not should_probe_candidate(mid):
-            break
         ok, peak = try_batch(mid)
         if ok and peak <= selection_budget_bytes:
             best = mid
@@ -1003,6 +976,9 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 "learning_rate": float(optimizer.param_groups[0]["lr"]),
                 "architecture": train_config.architecture,
                 "parameter_count": parameter_count,
+                "batch_size": train_config.batch_size,
+                "grad_accum_steps": train_config.grad_accum_steps,
+                "effective_batch_size": train_config.batch_size * train_config.grad_accum_steps,
                 "device": device.type,
                 "amp": train_config.amp and device.type == "cuda",
                 "stage_a": train_config.mode == "stage-a",

@@ -43,17 +43,30 @@ Evidence:
 - The isolated remote 4090 workspace service is now installed and verified
   under `L:\UDLF_REMOTE`; the remaining risk is remote data-path/config
   correctness for the actual 3000-step launch.
+- Local RTX 5060 throughput testing shows the current stack is still below the
+  known NAIME 64M reference target of roughly `2000` tokens/s. UDLF reached
+  about `1024` tokens/s at manual batch `28`, while the auto-batch path
+  originally selected only batch `10`. The pure PyTorch Mamba baseline is much
+  worse because it uses a Python per-token selective scan and is not a valid
+  high-performance Mamba comparison yet.
 
 Resolution plan:
 
 1. Run a one-step CUDA sanity check for each 64M config to catch OOM or config
    errors. Done.
-2. Finalize the exact run names for the remote 3000-step pair.
-3. Launch the 3000-step UDLF and Mamba jobs with quiet console logging through
+2. Fix the auto-batch selector so predicted memory estimates cannot skip
+   real candidates that fit. Done locally; remote validation pending.
+3. Replace or accelerate the pure PyTorch Mamba baseline before treating it as
+   a performance comparison.
+4. Profile and reduce UDLF per-token/per-solver dispatch overhead until local
+   64M throughput is close enough to the NAIME reference to justify remote
+   3000-step runs.
+5. Finalize the exact run names for the remote 3000-step pair.
+6. Launch the 3000-step UDLF and Mamba jobs with quiet console logging through
    the HTTPS workspace service.
-4. Track step, train/eval loss, perplexity, throughput, CUDA memory, checkpoint
+7. Track step, train/eval loss, perplexity, throughput, CUDA memory, checkpoint
    status, and failures.
-5. Summarize the first complete or failed ablation in
+8. Summarize the first complete or failed ablation in
    `doc/fineweb_edu_64m_ablation.md`.
 
 Exit criteria:
@@ -62,6 +75,8 @@ Exit criteria:
   checkpoints/logs.
 - The comparison table is updated from actual metrics, not config intent.
 - Any OOM or runtime bottleneck has a concrete follow-up plan.
+- Short local and remote throughput sanity runs record selected batch,
+  accumulation, effective batch, reserved memory, and tokens/s in metrics.
 
 ### Stage A robustness gate is not passing yet
 

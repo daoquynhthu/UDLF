@@ -379,3 +379,19 @@ This file records concise action summaries only. Detailed planning belongs in
   4090 still had unrelated non-UDLF Python processes occupying most of the
   used memory, so this run is only a code-path/metrics smoke, not throughput
   evidence.
+- Checked the remote 4090 before throughput launch; it was not idle. Two
+  non-UDLF Anaconda Python processes were still occupying most of the used GPU
+  memory, so formal remote throughput testing was deferred.
+- Ran local RTX 5060 64M FineWeb-Edu throughput probes. UDLF auto-batch before
+  the probe fix selected batch `10`, accumulation `2`, and averaged about
+  `777` tokens/s. Manual UDLF probes found batch `28` reached about `1024`
+  tokens/s, while batch `32` overfilled memory behavior and regressed. The
+  pure PyTorch Mamba baseline selected batch `2`, accumulation `8`, and only
+  reached about `175` tokens/s before being stopped, so it is not a valid
+  high-performance Mamba baseline yet.
+- Fixed auto-batch so the memory predictor no longer skips candidate probes.
+  The selector now relies on actual forward/backward probes bounded by
+  `auto_batch_max_probe_increment`. A repeat local UDLF auto run selected batch
+  `24`, accumulation `1`, and averaged about `842` tokens/s under
+  `vram_fraction=0.90`; metrics now include `batch_size`,
+  `grad_accum_steps`, and `effective_batch_size`.
