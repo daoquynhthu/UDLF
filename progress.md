@@ -444,3 +444,10 @@ This file records concise action summaries only. Detailed planning belongs in
   `segment_len`, and recorded `eval_batch_size` / `eval_segment_len` in
   metrics. Local `tests\test_stage_a_training.py` passed with
   `PYTHONPATH=src`.
+- Synced commit `01b883b` to the isolated remote workspace and relaunched the
+  same run from `latest.pt` as job `4dc7082c813d471180f5045d09c8e1cc`, with
+  `eval_batch_size=8` and `eval_interventions=false`. The previous orphaned
+  process had reached step `500`; the resumed job loaded `resume_step=500`,
+  reselected batch `64`, and wrote step `510` normally at about `4599.7`
+  tokens/s with empty stderr. The eval-resource fix still needs direct
+  confirmation at the next eval boundary, step `1000`.
