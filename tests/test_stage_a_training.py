@@ -251,6 +251,35 @@ def test_train_config_accepts_parameters_and_steps_alias():
     assert config.batch_size == 5
 
 
+def test_train_config_passes_mamba_official_alignment_parameters():
+    config = train_config_from_dict(
+        {
+            "architecture": "mamba",
+            "mamba_dt_min": 0.002,
+            "mamba_dt_max": 0.05,
+            "mamba_dt_init": "constant",
+            "mamba_dt_scale": 0.5,
+            "mamba_dt_init_floor": 1e-5,
+            "mamba_conv_bias": False,
+            "mamba_bias": True,
+            "mamba_residual_in_fp32": False,
+            "mamba_pad_vocab_size_multiple": 8,
+        }
+    )
+
+    mamba_config = config.mamba_config()
+
+    assert mamba_config.dt_min == 0.002
+    assert mamba_config.dt_max == 0.05
+    assert mamba_config.dt_init == "constant"
+    assert mamba_config.dt_scale == 0.5
+    assert mamba_config.dt_init_floor == 1e-5
+    assert mamba_config.conv_bias is False
+    assert mamba_config.bias is True
+    assert mamba_config.residual_in_fp32 is False
+    assert mamba_config.pad_vocab_size_multiple == 8
+
+
 def test_train_config_rejects_invalid_intervention_mix_alpha():
     try:
         train_config_from_dict({"mode": "stage-a", "intervention_mix_alpha": 1.5})

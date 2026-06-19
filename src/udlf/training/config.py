@@ -109,6 +109,15 @@ class UDLFTrainConfig:
     mamba_expand: int = 2
     mamba_conv_kernel: int = 4
     mamba_dt_rank: int = 0
+    mamba_dt_min: float = 0.001
+    mamba_dt_max: float = 0.1
+    mamba_dt_init: str = "random"
+    mamba_dt_scale: float = 1.0
+    mamba_dt_init_floor: float = 1e-4
+    mamba_conv_bias: bool = True
+    mamba_bias: bool = False
+    mamba_residual_in_fp32: bool = True
+    mamba_pad_vocab_size_multiple: int = 1
     tie_embeddings: bool = True
 
     sleep_seconds: float = 0.0
@@ -186,6 +195,16 @@ class UDLFTrainConfig:
             raise ValueError("mamba_d_state, mamba_expand, and mamba_conv_kernel must be positive")
         if self.mamba_dt_rank < 0:
             raise ValueError("mamba_dt_rank must be >= 0")
+        if self.mamba_dt_min <= 0 or self.mamba_dt_max <= 0 or self.mamba_dt_min >= self.mamba_dt_max:
+            raise ValueError("mamba_dt_min and mamba_dt_max must be positive with mamba_dt_min < mamba_dt_max")
+        if self.mamba_dt_init not in {"constant", "random"}:
+            raise ValueError("mamba_dt_init must be 'constant' or 'random'")
+        if self.mamba_dt_scale <= 0:
+            raise ValueError("mamba_dt_scale must be positive")
+        if self.mamba_dt_init_floor <= 0:
+            raise ValueError("mamba_dt_init_floor must be positive")
+        if self.mamba_pad_vocab_size_multiple < 1:
+            raise ValueError("mamba_pad_vocab_size_multiple must be >= 1")
 
     def model_config(self) -> UDLFModelConfig:
         return UDLFModelConfig(
@@ -217,6 +236,15 @@ class UDLFTrainConfig:
             expand=self.mamba_expand,
             conv_kernel=self.mamba_conv_kernel,
             dt_rank=self.mamba_dt_rank,
+            dt_min=self.mamba_dt_min,
+            dt_max=self.mamba_dt_max,
+            dt_init=self.mamba_dt_init,
+            dt_scale=self.mamba_dt_scale,
+            dt_init_floor=self.mamba_dt_init_floor,
+            conv_bias=self.mamba_conv_bias,
+            bias=self.mamba_bias,
+            residual_in_fp32=self.mamba_residual_in_fp32,
+            pad_vocab_size_multiple=self.mamba_pad_vocab_size_multiple,
             tie_embeddings=self.tie_embeddings,
         )
 

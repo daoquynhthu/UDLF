@@ -3,7 +3,7 @@ from __future__ import annotations
 import torch
 
 from udlf.config import UDLFModelConfig
-from udlf.llm import MambaLMConfig, MambaLMModel
+from udlf.llm import MambaLMConfig, MambaLMModel, MambaMixer
 from udlf.model import UDLFStageAModel
 
 
@@ -122,4 +122,42 @@ def test_mamba_lm_forward_shapes_and_loss():
     assert output.final_state is None
     assert output.loss is not None
     assert output.loss.ndim == 0
+    assert torch.isfinite(output.loss)
+
+
+def test_mamba_mixer_uses_official_dt_and_decay_parameterization():
+    torch.manual_seed(9)
+    config = MambaLMConfig(vocab_size=37, d_model=24, d_state=4, expand=2, dt_min=0.002, dt_max=0.05)
+    mixer = MambaMixer(config)
+
+    dt = torch.nn.functional.softplus(mixer.dt_proj.bias.detach())
+
+    assert dt.min() >= config.dt_min * 0.999
+    assert dt.max() <= config.dt_max * 1.001
+    assert getattr(mixer.dt_proj.bias, "_no_reinit", False)
+    assert getattr(mixer.A_log, "_no_weight_decay", False)
+    assert getattr(mixer.D, "_no_weight_decay", False)
+
+
+def test_mamba_lm_pads_internal_vocab_but_returns_real_vocab_logits():
+    torch.manual_seed(10)
+    model = MambaLMModel(
+        MambaLMConfig(
+            vocab_size=37,
+            d_model=24,
+            n_layers=2,
+            d_state=4,
+            expand=2,
+            conv_kernel=3,
+            pad_vocab_size_multiple=8,
+        )
+    )
+    input_ids = torch.randint(0, model.config.vocab_size, (2, 9))
+
+    output = model(input_ids)
+
+    assert model.embedding.num_embeddings == 40
+    assert model.lm_head.out_features == 40
+    assert output.logits.shape == (2, 8, 37)
+    assert output.loss is not None
     assert torch.isfinite(output.loss)

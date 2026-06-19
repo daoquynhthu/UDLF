@@ -530,6 +530,11 @@ Immediate performance gate before any 3000-step remote ablation:
 - Replace the hand-written pure PyTorch Mamba baseline with an official or
   otherwise kernel-accelerated implementation before using it as the comparison
   baseline.
+- Until official kernels are available, keep the hand-written Mamba baseline
+  semantically aligned with Mamba1: official dt initialization, A/D
+  parameterization, Add->Norm->Mixer residual structure, residual fp32 option,
+  and padded internal vocabulary. Treat its throughput as a lower bound for a
+  non-fused implementation, not as official Mamba performance.
 - Confirm short-run UDLF and Mamba throughput from `metrics.jsonl`, not from a
   one-step eval/checkpoint-heavy smoke run.
 - Eval must have an independent resource budget before any long run is

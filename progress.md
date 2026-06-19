@@ -459,3 +459,14 @@ This file records concise action summaries only. Detailed planning belongs in
   all record `eval_batch_size=8` and `eval_segment_len=64`, confirming the
   eval-resource fix. The older step-500 eval row remains pre-fix and lacks
   those fields.
+- Reworked the hand-written Mamba baseline toward official Mamba1 semantics:
+  separated the pure PyTorch selective-scan mixer from the official-style
+  Add->Norm->Mixer block, adopted the official `dt_min/dt_max` log-uniform
+  inverse-softplus initialization, preserved `A_log` and `D` no-weight-decay
+  markers, added residual-in-fp32 handling, optional vocab padding, and
+  GPT-style residual out-projection scaling. Training config and both Mamba
+  64M templates now expose the official alignment parameters explicitly. The
+  64M templates build a `63,742,080` parameter model with padded vocab `50264`
+  while returning logits over the real vocab `50257`. Relevant tests passed:
+  `tests\test_stage_a_model.py`, `tests\test_stage_a_training.py`, and
+  `compileall`.
