@@ -532,6 +532,11 @@ Immediate performance gate before any 3000-step remote ablation:
   baseline.
 - Confirm short-run UDLF and Mamba throughput from `metrics.jsonl`, not from a
   one-step eval/checkpoint-heavy smoke run.
+- Eval must have an independent resource budget before any long run is
+  trusted. For UDLF, eval uses `eval_batch_size` and the configured
+  `segment_len` instead of inheriting the auto-selected training batch into a
+  non-segmented full-sequence path. Long runs should set `eval_batch_size`
+  explicitly when auto-batch is enabled.
 - Do not restart the 3000-step ablation until this gate passes.
 
 Console policy for future local/remote experiments:

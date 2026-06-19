@@ -29,8 +29,10 @@ def test_stage_a_training_writes_metrics(tmp_path):
         "solver_steps": 1,
         "diffusion_mode": "ode",
         "dynamics_diagnostics": True,
+        "segment_len": 3,
         "eval_every": 1,
         "eval_batches": 1,
+        "eval_batch_size": 1,
         "intervention_pair_trials": 2,
         "intervention_mix_alpha": 0.25,
     }
@@ -45,6 +47,8 @@ def test_stage_a_training_writes_metrics(tmp_path):
     assert (run_dir / "config.json").exists()
     assert (run_dir / "latest.pt").exists()
     assert (run_dir / "models" / "model_latest.pt").exists()
+    assert rows[-1]["eval_batch_size"] == 1
+    assert rows[-1]["eval_segment_len"] == 3
     assert rows[-1]["intervention_mix_alpha"] == 0.25
     assert rows[-1]["intervention_pair_trials"] == 2.0
     assert "intervention_mixed_loss" in rows[-1]

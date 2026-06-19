@@ -65,6 +65,7 @@ class UDLFTrainConfig:
     console_log_mode: str = "progress"
     eval_every: int = 0
     eval_batches: int = 4
+    eval_batch_size: int = 0
     dynamics_diagnostics: bool = False
     stability_diagnostics: bool = False
     stability_diagnostic_every: int = 0
@@ -133,6 +134,10 @@ class UDLFTrainConfig:
             raise ValueError("seq_len must be >= 2")
         if self.log_every < 1:
             raise ValueError("log_every must be >= 1")
+        if self.eval_batches < 1:
+            raise ValueError("eval_batches must be >= 1")
+        if self.eval_batch_size < 0:
+            raise ValueError("eval_batch_size must be >= 0")
         if self.stability_diagnostic_every < 0:
             raise ValueError("stability_diagnostic_every must be >= 0")
         if self.stability_diagnostic_eps <= 0:

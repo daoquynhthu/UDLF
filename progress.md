@@ -434,3 +434,13 @@ This file records concise action summaries only. Detailed planning belongs in
   Auto-batch selected batch `64`, grad accumulation `1`, effective batch `64`.
   At step `10`, metrics reported loss `10.7655`, `4491.5` tokens/s,
   `10533.896` MB CUDA allocated, and `11246.0` MB CUDA reserved.
+- Stopped job `e315edf9ea04431c9920ea16e7f27302` after it stalled at the
+  step-500 eval boundary: `train.log` and `metrics.jsonl` stopped at step
+  `490`, stderr was empty, GPU utilization was `100%`, and only `444` MB
+  VRAM was free. The immediate root cause was that UDLF eval used the training
+  batch size while forcing `segment_len=0`, so the auto-selected batch `64`
+  entered a non-segmented full-sequence eval path. Added explicit
+  `eval_batch_size`, made UDLF eval reuse the configured training
+  `segment_len`, and recorded `eval_batch_size` / `eval_segment_len` in
+  metrics. Local `tests\test_stage_a_training.py` passed with
+  `PYTHONPATH=src`.

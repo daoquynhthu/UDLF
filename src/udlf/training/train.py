@@ -599,6 +599,7 @@ def _evaluate_loss(
     device: torch.device,
     generator: torch.Generator,
     use_amp: bool,
+    segment_len: int = 0,
 ) -> float:
     model.eval()
     losses: list[float] = []
@@ -610,7 +611,7 @@ def _evaluate_loss(
                     model,
                     batch,
                     loss_mask=loss_mask,
-                    segment_len=0,
+                    segment_len=segment_len,
                     generator=generator,
                     detach_state_between_segments=True,
                 )
@@ -1007,15 +1008,20 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
 
             save_best = False
             if train_config.eval_every > 0 and step % train_config.eval_every == 0:
+                eval_batch_size = train_config.eval_batch_size or train_config.batch_size
+                eval_segment_len = train_config.segment_len if isinstance(model, UDLFStageAModel) else 0
                 eval_loss = _evaluate_loss(
                     model,
                     eval_dataset,
-                    batch_size=train_config.batch_size,
+                    batch_size=eval_batch_size,
                     batches=train_config.eval_batches,
                     device=device,
                     generator=noise_generator,
                     use_amp=train_config.amp,
+                    segment_len=eval_segment_len,
                 )
+                metrics["eval_batch_size"] = eval_batch_size
+                metrics["eval_segment_len"] = eval_segment_len
                 metrics["eval_loss_lm"] = eval_loss
                 metrics["eval_ppl_lm"] = math.exp(min(eval_loss, 20.0))
                 if isinstance(model, UDLFStageAModel) and train_config.eval_interventions:
