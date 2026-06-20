@@ -56,6 +56,10 @@ Resolution plan:
    safe at horizon 64 but saturated 24 GiB on a longer random horizon. Batch
    now scales inversely with horizon and accumulation scales up, keeping the
    activation budget and examples per optimizer step approximately constant.
+8. Full-BPTT batch 12 passed in a clean probe at `20.67 GiB` but reached
+   24.1 GiB after allocator fragmentation from preceding variable horizons.
+   The formal template uses batch 8, whose clean full-BPTT peak was
+   `13.38 GiB`, with accumulation 8 for 64 examples.
 
 Exit criteria: a medium-scale run retains at least eight effective slot
 directions, keeps mean pair cosine below 0.8, and improves fixed-sample

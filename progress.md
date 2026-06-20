@@ -525,3 +525,9 @@ This file records concise action summaries only. Detailed planning belongs in
   24 GiB because batch did not scale with truncation length. Stopped the run
   and added inverse horizon/batch scheduling with compensating accumulation:
   64x64, 32x128, 16x256, and measured 12x512. The suite passes `37` tests.
+- The horizon-aware gate reached `4383 tok/s` on a 64-token step and kept loss
+  finite through step 7, but the batch-12 full step encountered 24.1 GiB
+  allocator occupancy after variable-horizon fragmentation. Reduced the formal
+  full-BPTT micro-batch to 8; its clean measured peak was `13.38 GiB`, leaving
+  enough margin for a long-lived process. Per-step accumulation rises to 8 so
+  the optimizer still sees 64 sequences.
