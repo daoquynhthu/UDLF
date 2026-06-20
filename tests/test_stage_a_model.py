@@ -161,3 +161,29 @@ def test_mamba_lm_pads_internal_vocab_but_returns_real_vocab_logits():
     assert output.logits.shape == (2, 8, 37)
     assert output.loss is not None
     assert torch.isfinite(output.loss)
+
+
+def test_mamba_forced_fused_backend_does_not_silently_fallback():
+    import udlf.llm as llm_module
+
+    if llm_module.causal_conv1d_fn is not None and llm_module.selective_scan_fn is not None:
+        return
+    try:
+        MambaMixer(MambaLMConfig(vocab_size=37, d_model=24, d_state=4, backend="fused"))
+    except RuntimeError as exc:
+        assert "fused backend requires" in str(exc)
+    else:
+        raise AssertionError("expected forced fused backend to reject missing kernels")
+
+
+def test_custom_mamba_kernel_is_restricted_to_supported_state_size():
+    import udlf.llm as llm_module
+
+    if llm_module.selective_scan_fn is not None:
+        return
+    try:
+        MambaMixer(MambaLMConfig(vocab_size=37, d_model=24, d_state=8, backend="fused"))
+    except RuntimeError as exc:
+        assert "fused backend requires" in str(exc)
+    else:
+        raise AssertionError("expected custom kernel to reject d_state != 16")

@@ -73,6 +73,26 @@ def _parameter_count(model: nn.Module) -> int:
     return sum(parameter.numel() for parameter in model.parameters())
 
 
+def _build_optimizer(model: nn.Module, config: UDLFTrainConfig) -> torch.optim.AdamW:
+    decay: list[nn.Parameter] = []
+    no_decay: list[nn.Parameter] = []
+    for parameter in model.parameters():
+        if not parameter.requires_grad:
+            continue
+        if getattr(parameter, "_no_weight_decay", False):
+            no_decay.append(parameter)
+        else:
+            decay.append(parameter)
+    return torch.optim.AdamW(
+        [
+            {"params": decay, "weight_decay": config.weight_decay},
+            {"params": no_decay, "weight_decay": 0.0},
+        ],
+        lr=config.learning_rate,
+        betas=(config.beta1, config.beta2),
+    )
+
+
 def _autocast_context(device: torch.device, enabled: bool):
     return torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=enabled and device.type == "cuda")
 
@@ -365,7 +385,7 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
         try:
             model, _model_config = _build_model(train_config, device)
             model.train()
-            optimizer = torch.optim.AdamW(model.parameters(), lr=train_config.learning_rate)
+            optimizer = _build_optimizer(model, train_config)
             batch = torch.randint(0, train_config.vocab_size, (batch_size, train_config.seq_len), device=device)
             generator = make_noise_generator(device, train_config.seed + 12345)
             with _autocast_context(device, train_config.amp):
@@ -835,12 +855,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
 
     train_dataset, eval_dataset = build_datasets(train_config)
     parameter_count = _parameter_count(model)
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=train_config.learning_rate,
-        weight_decay=train_config.weight_decay,
-        betas=(train_config.beta1, train_config.beta2),
-    )
+    optimizer = _build_optimizer(model, train_config)
     scheduler = build_scheduler(
         optimizer,
         max_steps=train_config.max_steps,
@@ -985,6 +1000,8 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 "stage_a": train_config.mode == "stage-a",
                 "training_mode": train_config.mode,
             }
+            if isinstance(model, MambaLMModel):
+                metrics["mamba_backend"] = model.backend
             metrics.update(architecture_metrics)
             if isinstance(model, UDLFStageAModel):
                 assert final_state is not None

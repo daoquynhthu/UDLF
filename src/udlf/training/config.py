@@ -118,6 +118,7 @@ class UDLFTrainConfig:
     mamba_bias: bool = False
     mamba_residual_in_fp32: bool = True
     mamba_pad_vocab_size_multiple: int = 1
+    mamba_backend: str = "auto"
     tie_embeddings: bool = True
 
     sleep_seconds: float = 0.0
@@ -205,6 +206,8 @@ class UDLFTrainConfig:
             raise ValueError("mamba_dt_init_floor must be positive")
         if self.mamba_pad_vocab_size_multiple < 1:
             raise ValueError("mamba_pad_vocab_size_multiple must be >= 1")
+        if self.mamba_backend not in {"auto", "fused", "torch"}:
+            raise ValueError("mamba_backend must be 'auto', 'fused', or 'torch'")
 
     def model_config(self) -> UDLFModelConfig:
         return UDLFModelConfig(
@@ -245,6 +248,7 @@ class UDLFTrainConfig:
             bias=self.mamba_bias,
             residual_in_fp32=self.mamba_residual_in_fp32,
             pad_vocab_size_multiple=self.mamba_pad_vocab_size_multiple,
+            backend=self.mamba_backend,
             tie_embeddings=self.tie_embeddings,
         )
 

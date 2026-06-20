@@ -470,3 +470,8 @@ This file records concise action summaries only. Detailed planning belongs in
   while returning logits over the real vocab `50257`. Relevant tests passed:
   `tests\test_stage_a_model.py`, `tests\test_stage_a_training.py`, and
   `compileall`.
+- Implemented and remotely compiled a repository-owned CUDA selective-scan
+  forward/backward backend with 64-token checkpoint recomputation.
+- Matched forward plus all eight gradient groups against PyTorch across a chunk
+  boundary and completed a finite 64M fused training smoke.
+- Step 2 reached only `70.6` token/s at batch 2; warp optimization is required.

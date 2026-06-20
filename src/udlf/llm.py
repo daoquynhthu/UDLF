@@ -8,6 +8,17 @@ from torch import Tensor, nn
 import torch.nn.functional as F
 
 from .modules import RMSNorm
+from .selective_scan import custom_scan_supported, selective_scan
+
+try:
+    from causal_conv1d import causal_conv1d_fn
+except ImportError:
+    causal_conv1d_fn = None
+
+try:
+    from mamba_ssm.ops.selective_scan_interface import selective_scan_fn
+except ImportError:
+    selective_scan_fn = None
 
 
 @dataclass(frozen=True)
@@ -29,6 +40,7 @@ class MambaLMConfig:
     rms_eps: float = 1e-6
     residual_in_fp32: bool = True
     pad_vocab_size_multiple: int = 1
+    backend: str = "auto"
     tie_embeddings: bool = True
 
     def __post_init__(self) -> None:
@@ -52,6 +64,8 @@ class MambaLMConfig:
             raise ValueError("dt_init_floor must be positive")
         if self.pad_vocab_size_multiple < 1:
             raise ValueError("pad_vocab_size_multiple must be >= 1")
+        if self.backend not in {"auto", "fused", "torch"}:
+            raise ValueError("backend must be 'auto', 'fused', or 'torch'")
 
     @property
     def padded_vocab_size(self) -> int:
@@ -102,6 +116,16 @@ class MambaMixer(nn.Module):
         self.D._no_weight_decay = True  # type: ignore[attr-defined]
         self.out_proj = nn.Linear(self.inner_dim, config.d_model, bias=config.bias)
         self._init_dt(config)
+        if config.backend == "fused" and not self.fused_available:
+            raise RuntimeError("Mamba fused backend requires an official or UDLF selective-scan CUDA kernel")
+
+    @property
+    def fused_available(self) -> bool:
+        return selective_scan_fn is not None or custom_scan_supported(self.d_state)
+
+    @property
+    def use_fused_backend(self) -> bool:
+        return self.config.backend == "fused" or (self.config.backend == "auto" and self.fused_available)
 
     def _init_dt(self, config: MambaLMConfig) -> None:
         dt_init_std = self.dt_rank ** -0.5 * config.dt_scale
@@ -121,17 +145,37 @@ class MambaMixer(nn.Module):
         batch, time, _ = x.shape
         xz = self.in_proj(x).transpose(1, 2)
         x_inner, gate = xz.chunk(2, dim=1)
-        x_inner = self.act(self.conv1d(x_inner)[..., :time])
+        if self.use_fused_backend and causal_conv1d_fn is not None:
+            x_inner = causal_conv1d_fn(  # type: ignore[misc]
+                x=x_inner,
+                weight=self.conv1d.weight.squeeze(1),
+                bias=self.conv1d.bias,
+                activation="silu",
+            )
+        else:
+            x_inner = self.act(self.conv1d(x_inner)[..., :time])
 
         d_state = self.config.d_state
         x_params = self.x_proj(x_inner.transpose(1, 2).reshape(batch * time, self.inner_dim))
         dt_input, b, c = torch.split(x_params, [self.dt_rank, d_state, d_state], dim=-1)
         dt = F.linear(dt_input, self.dt_proj.weight).reshape(batch, time, self.inner_dim).transpose(1, 2)
-        dt = F.softplus(dt + self.dt_proj.bias.to(dtype=dt.dtype).view(1, -1, 1))
         b = b.reshape(batch, time, d_state).transpose(1, 2).contiguous()
         c = c.reshape(batch, time, d_state).transpose(1, 2).contiguous()
         a = -torch.exp(self.A_log.float()).to(dtype=x_inner.dtype, device=x_inner.device)
+        if self.use_fused_backend:
+            if selective_scan_fn is not None:
+                y = selective_scan_fn(  # type: ignore[misc]
+                    x_inner, dt, a, b, c, self.D.float(), z=gate,
+                    delta_bias=self.dt_proj.bias.float(), delta_softplus=True,
+                )
+            else:
+                y = selective_scan(
+                    x_inner, dt, a, b, c, self.D.float(),
+                    z=gate, delta_bias=self.dt_proj.bias.float(),
+                )
+            return self.out_proj(y.transpose(1, 2))
 
+        dt = F.softplus(dt + self.dt_proj.bias.to(dtype=dt.dtype).view(1, -1, 1))
         state = torch.zeros(batch, self.inner_dim, d_state, dtype=x_inner.dtype, device=x_inner.device)
         outputs: list[Tensor] = []
         for t in range(time):
@@ -175,6 +219,10 @@ class MambaLMModel(nn.Module):
         if config.tie_embeddings:
             self.lm_head.weight = self.embedding.weight
         self.apply(self._init_weights)
+
+    @property
+    def backend(self) -> str:
+        return "fused" if self.blocks[0].mixer.use_fused_backend else "torch"
 
     def _init_weights(self, module: nn.Module) -> None:
         if isinstance(module, nn.Linear):

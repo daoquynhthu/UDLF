@@ -16,6 +16,22 @@ If an issue does not need planned resolution, it does not belong in this file.
 
 ## Active
 
+### Custom selective scan remains below the performance gate
+
+The CUDA implementation is numerically correct but assigns one thread to an
+entire channel recurrence and reaches only `70.6` token/s at batch 2, sequence
+length 512 on the RTX 4090.
+
+Resolution plan:
+
+1. Map one warp to each channel and distribute 16 state elements over lanes.
+2. Use warp reductions for output and delta-gradient accumulation.
+3. Re-run gradient parity, memory probing, and sustained model throughput.
+4. Run the 3000-step Mamba baseline only after that gate passes.
+
+Exit criteria: parity remains within tolerance and 64M throughput is suitable
+for a fair UDLF comparison.
+
 ### 64M FineWeb-Edu ablation has not run yet
 
 Status: open.

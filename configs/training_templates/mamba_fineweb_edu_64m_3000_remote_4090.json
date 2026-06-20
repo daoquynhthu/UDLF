@@ -42,6 +42,7 @@
   "mamba_bias": false,
   "mamba_residual_in_fp32": true,
   "mamba_pad_vocab_size_multiple": 8,
+  "mamba_backend": "fused",
   "tie_embeddings": true,
   "amp": true,
   "eval_every": 250,

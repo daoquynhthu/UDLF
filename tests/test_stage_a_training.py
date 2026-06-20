@@ -7,7 +7,7 @@ from datasets import Dataset, DatasetDict
 
 from udlf.data import QueryRecallDataset, RealTokenQueryRecallDataset, RepeatingPatternDataset, TokenDatasetFromDisk
 from udlf.training.config import train_config_from_dict
-from udlf.training.train import run_stage_a
+from udlf.training.train import _build_optimizer, run_stage_a
 
 
 def test_stage_a_training_writes_metrics(tmp_path):
@@ -264,6 +264,7 @@ def test_train_config_passes_mamba_official_alignment_parameters():
             "mamba_bias": True,
             "mamba_residual_in_fp32": False,
             "mamba_pad_vocab_size_multiple": 8,
+            "mamba_backend": "torch",
         }
     )
 
@@ -278,6 +279,25 @@ def test_train_config_passes_mamba_official_alignment_parameters():
     assert mamba_config.bias is True
     assert mamba_config.residual_in_fp32 is False
     assert mamba_config.pad_vocab_size_multiple == 8
+    assert mamba_config.backend == "torch"
+
+
+def test_mamba_optimizer_excludes_a_and_d_from_weight_decay():
+    from udlf.llm import MambaLMConfig, MambaLMModel
+
+    config = train_config_from_dict({"architecture": "mamba", "weight_decay": 0.1})
+    model = MambaLMModel(MambaLMConfig(vocab_size=37, d_model=24, n_layers=2, d_state=4))
+    optimizer = _build_optimizer(model, config)
+    no_decay_ids = {
+        id(parameter)
+        for group in optimizer.param_groups
+        if group["weight_decay"] == 0.0
+        for parameter in group["params"]
+    }
+
+    for block in model.blocks:
+        assert id(block.mixer.A_log) in no_decay_ids
+        assert id(block.mixer.D) in no_decay_ids
 
 
 def test_train_config_rejects_invalid_intervention_mix_alpha():
@@ -372,6 +392,7 @@ def test_mamba_training_writes_metrics(tmp_path):
 
     rows = [json.loads(line) for line in (run_dir / "metrics.jsonl").read_text(encoding="utf-8").splitlines()]
     assert rows[-1]["architecture"] == "mamba"
+    assert rows[-1]["mamba_backend"] == "torch"
     assert rows[-1]["parameter_count"] > 0
     assert "eval_loss_lm" in rows[-1]
     assert "state_rms" not in rows[-1]

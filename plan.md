@@ -544,6 +544,13 @@ Immediate performance gate before any 3000-step remote ablation:
   explicitly when auto-batch is enabled.
 - Do not restart the 3000-step ablation until this gate passes.
 
+### Custom Mamba CUDA backend
+
+- Own a narrow Mamba1 selective-scan CUDA backend for `sm_89`, `d_state=16`, and BF16/FP32 training.
+- Store recurrent checkpoints every 64 tokens and recompute chunks in backward.
+- Fail closed when a forced fused backend cannot build or load.
+- Require gradient parity and sustained model throughput before a 3000-step run.
+
 Console policy for future local/remote experiments:
 
 - Training configs should use `console_log_mode="quiet"` for long runs unless
