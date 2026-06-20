@@ -96,6 +96,35 @@ def test_explicit_state_carry_matches_single_prefix_in_ode_mode():
     assert torch.allclose(full_logits, segmented_logits, atol=1e-5, rtol=1e-5)
 
 
+def test_slot_identity_is_persistent_and_trainable():
+    torch.manual_seed(11)
+    model = UDLFStageAModel(small_config(diffusion_mode="ode"))
+
+    assert model.slot_identity.requires_grad
+    assert 0.8 < float(model.initial_state.detach().std()) < 1.2
+    assert model.slot_identity.detach().std() > 0
+    assert torch.allclose(
+        model.slot_identity_features().pow(2).mean(dim=-1),
+        torch.ones(1, model.config.latent_slots),
+        atol=1e-5,
+    )
+
+    output = model(torch.tensor([[1, 2, 3, 4]]))
+    output.loss.backward()
+
+    assert model.slot_identity.grad is not None
+    assert torch.isfinite(model.slot_identity.grad).all()
+    assert model.slot_identity.grad.abs().sum() > 0
+
+
+def test_tied_embedding_initialization_has_language_model_scale():
+    torch.manual_seed(12)
+    model = UDLFStageAModel(small_config(tie_embeddings=True))
+
+    assert model.output_weight is model.embedding.weight
+    assert 0.015 < float(model.embedding.weight.detach().std()) < 0.025
+
+
 def test_posterior_prefix_keeps_prior_and_posterior_states_separate():
     torch.manual_seed(7)
     model = UDLFStageAModel(small_config(diffusion_mode="ode"), enable_posterior=True)

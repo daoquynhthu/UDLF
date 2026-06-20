@@ -52,6 +52,7 @@ class UDLFTrainConfig:
     segment_len: int = 0
     segment_len_min: int = 0
     segment_len_max: int = 0
+    full_bptt_every: int = 0
     detach_state_between_segments: bool = True
     prior_path_samples: int = 1
     prior_state_selection: str = "first"
@@ -120,6 +121,8 @@ class UDLFTrainConfig:
     mamba_pad_vocab_size_multiple: int = 1
     mamba_backend: str = "auto"
     tie_embeddings: bool = True
+    initial_slot_std: float = 1.0
+    slot_identity_std: float = 0.02
 
     sleep_seconds: float = 0.0
 
@@ -182,6 +185,8 @@ class UDLFTrainConfig:
             raise ValueError("segment_len_min and segment_len_max must be >= 0")
         if self.segment_len_min and self.segment_len_max and self.segment_len_min > self.segment_len_max:
             raise ValueError("segment_len_min must be <= segment_len_max")
+        if self.full_bptt_every < 0:
+            raise ValueError("full_bptt_every must be >= 0")
         if self.intervention_perturb_trials < 1:
             raise ValueError("intervention_perturb_trials must be >= 1")
         if self.intervention_pair_trials < 1:
@@ -226,6 +231,8 @@ class UDLFTrainConfig:
             diffusion_mode=self.diffusion_mode,  # type: ignore[arg-type]
             fixed_sigma=self.fixed_sigma,
             tie_embeddings=self.tie_embeddings,
+            initial_slot_std=self.initial_slot_std,
+            slot_identity_std=self.slot_identity_std,
         )
 
     def mamba_config(self):

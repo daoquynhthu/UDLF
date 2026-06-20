@@ -32,9 +32,17 @@ class ObservationInjection(nn.Module):
         self.gate = nn.Linear(d + config.embed_dim, d)
         self.out_norm = RMSNorm(d, config.rms_eps)
 
-    def forward(self, state: Tensor, token_embed: Tensor, diagnostics: dict[str, list[Tensor]] | None = None) -> Tensor:
+    def forward(
+        self,
+        state: Tensor,
+        token_embed: Tensor,
+        slot_identity: Tensor | None = None,
+        diagnostics: dict[str, list[Tensor]] | None = None,
+    ) -> Tensor:
         # state: [B, M, d], token_embed: [B, de]
         normalized = self.norm(state)
+        if slot_identity is not None:
+            normalized = normalized + slot_identity
         q = self.q(normalized)
         k = self.k(token_embed).unsqueeze(-1)
         alpha = torch.softmax(torch.matmul(q, k).squeeze(-1) / math.sqrt(q.shape[-1]), dim=-1)
@@ -73,8 +81,15 @@ class LatentInteractionCore(nn.Module):
         self.v = nn.Linear(3 * d, hidden)
         self.out = nn.Linear(hidden, d)
 
-    def forward(self, state: Tensor, token_embed: Tensor) -> tuple[Tensor, Tensor]:
+    def forward(
+        self,
+        state: Tensor,
+        token_embed: Tensor,
+        slot_identity: Tensor | None = None,
+    ) -> tuple[Tensor, Tensor]:
         r = self.norm(state)
+        if slot_identity is not None:
+            r = r + slot_identity
         context, _ = self.attn(r, r, r, need_weights=False)
         condition = self.input_condition(token_embed).unsqueeze(1).expand_as(r)
         joined = torch.cat([r, context, condition], dim=-1)
@@ -92,8 +107,13 @@ class PriorDynamics(nn.Module):
         self.dissipation = nn.Linear(2 * d, d)
         self.diffusion = nn.Linear(2 * d, d)
 
-    def drift_and_sigma(self, state: Tensor, token_embed: Tensor) -> tuple[Tensor, Tensor]:
-        y, r = self.core(state, token_embed)
+    def drift_and_sigma(
+        self,
+        state: Tensor,
+        token_embed: Tensor,
+        slot_identity: Tensor | None = None,
+    ) -> tuple[Tensor, Tensor]:
+        y, r = self.core(state, token_embed, slot_identity)
         joined = torch.cat([r, y], dim=-1)
         lam = self.config.lambda_max * torch.sigmoid(self.dissipation(joined))
         drift = self.config.beta_max * torch.tanh(y) - lam * state
@@ -113,13 +133,14 @@ class PriorDynamics(nn.Module):
         state: Tensor,
         token_embed: Tensor,
         generator: torch.Generator | None = None,
+        slot_identity: Tensor | None = None,
         diagnostics: dict[str, list[Tensor]] | None = None,
     ) -> Tensor:
         ds = 1.0 / self.config.solver_steps
         sqrt_ds = math.sqrt(ds)
         z = state
         for _ in range(self.config.solver_steps):
-            drift, sigma = self.drift_and_sigma(z, token_embed)
+            drift, sigma = self.drift_and_sigma(z, token_embed, slot_identity)
             if self.config.diffusion_mode == "ode":
                 noise = torch.zeros_like(z)
             else:
@@ -169,17 +190,25 @@ class LatentReadout(nn.Module):
         self.to_embed = nn.Linear(d, config.embed_dim, bias=False)
         self.bias = nn.Parameter(torch.zeros(config.vocab_size))
 
-    def forward(self, state: Tensor, token_embed: Tensor, embedding_weight: Tensor) -> Tensor:
+    def forward(
+        self,
+        state: Tensor,
+        token_embed: Tensor,
+        embedding_weight: Tensor,
+        slot_identity: Tensor | None = None,
+    ) -> Tensor:
         original_shape = state.shape[:-2]
         if state.ndim < 3:
             raise ValueError("state must have shape [..., slots, dim]")
         state = state.reshape(-1, state.shape[-2], state.shape[-1])
         token_embed = token_embed.reshape(-1, token_embed.shape[-1])
+        if slot_identity is not None:
+            slot_identity = slot_identity.expand(state.shape[0], -1, -1)
         mean_state = state.mean(dim=1)
         cond = self.condition(torch.cat([token_embed, mean_state], dim=-1))
         query_delta = self.query_delta(cond).view(-1, self.config.readout_heads, self.config.latent_dim)
         queries = self.base_queries.unsqueeze(0) + query_delta
-        keys = self.key(state)
+        keys = self.key(state if slot_identity is None else state + slot_identity)
         scores = torch.einsum("bhd,bmd->bhm", queries, keys) / math.sqrt(self.config.latent_dim)
         weights = torch.softmax(scores, dim=-1)
         heads = torch.einsum("bhm,bmd->bhd", weights, state)

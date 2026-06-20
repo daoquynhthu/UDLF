@@ -40,12 +40,18 @@ class UDLFStageAModel(nn.Module):
         self.config = config
         self.enable_posterior = enable_posterior
         self.embedding = nn.Embedding(config.vocab_size, config.embed_dim)
+        nn.init.normal_(self.embedding.weight, mean=0.0, std=0.02)
         self.output_weight = self.embedding.weight if config.tie_embeddings else nn.Parameter(
             torch.empty(config.vocab_size, config.embed_dim)
         )
         if not config.tie_embeddings:
             nn.init.normal_(self.output_weight, mean=0.0, std=0.02)
-        self.initial_state = nn.Parameter(torch.zeros(config.latent_slots, config.latent_dim))
+        self.initial_state = nn.Parameter(
+            torch.empty(config.latent_slots, config.latent_dim).normal_(std=config.initial_slot_std)
+        )
+        self.slot_identity = nn.Parameter(
+            torch.empty(config.latent_slots, config.latent_dim).normal_(std=config.slot_identity_std)
+        )
         self.inject = ObservationInjection(config)
         self.prior = PriorDynamics(config)
         self.posterior_control = PosteriorControl(config) if enable_posterior else None
@@ -56,6 +62,10 @@ class UDLFStageAModel(nn.Module):
         if device is not None or dtype is not None:
             state = state.to(device=device or state.device, dtype=dtype or state.dtype)
         return state.unsqueeze(0).expand(batch_size, -1, -1).clone()
+
+    def slot_identity_features(self) -> Tensor:
+        identity = F.normalize(self.slot_identity, dim=-1) * math.sqrt(self.config.latent_dim)
+        return identity.unsqueeze(0)
 
     def forward_prefix(
         self,
@@ -77,11 +87,23 @@ class UDLFStageAModel(nn.Module):
         token_embeds: list[Tensor] = []
         for t in range(steps):
             token_embed = self.embedding(input_ids[:, t])
-            state = self.inject(state, token_embed, diagnostics=diagnostics)
-            state = self.prior.euler_maruyama(state, token_embed, generator=generator, diagnostics=diagnostics)
+            identity = self.slot_identity_features()
+            state = self.inject(state, token_embed, identity, diagnostics=diagnostics)
+            state = self.prior.euler_maruyama(
+                state,
+                token_embed,
+                generator=generator,
+                slot_identity=identity,
+                diagnostics=diagnostics,
+            )
             states.append(state)
             token_embeds.append(token_embed)
-        logits = self.readout(torch.stack(states, dim=1), torch.stack(token_embeds, dim=1), self.output_weight)
+        logits = self.readout(
+            torch.stack(states, dim=1),
+            torch.stack(token_embeds, dim=1),
+            self.output_weight,
+            self.slot_identity_features(),
+        )
         return logits, state
 
     def forward_posterior_prefix(
@@ -116,20 +138,22 @@ class UDLFStageAModel(nn.Module):
             token_embed = self.embedding(input_ids[:, t])
             target_embed = self.embedding(target_ids[:, t])
 
-            prior_state = self.inject(prior_state, token_embed, diagnostics=diagnostics)
+            identity = self.slot_identity_features()
+            prior_state = self.inject(prior_state, token_embed, identity, diagnostics=diagnostics)
             prior_state = self.prior.euler_maruyama(
                 prior_state,
                 token_embed,
                 generator=prior_generator,
+                slot_identity=identity,
                 diagnostics=diagnostics,
             )
 
-            posterior_state = self.inject(posterior_state, token_embed)
+            posterior_state = self.inject(posterior_state, token_embed, identity)
             ds = 1.0 / self.config.solver_steps
             sqrt_ds = math.sqrt(ds)
             kl = torch.zeros((), device=posterior_state.device, dtype=posterior_state.dtype)
             for _ in range(self.config.solver_steps):
-                drift, sigma = self.prior.drift_and_sigma(posterior_state, token_embed)
+                drift, sigma = self.prior.drift_and_sigma(posterior_state, token_embed, identity)
                 control = self.posterior_control(posterior_state, token_embed, target_embed)
                 if self.config.diffusion_mode == "ode":
                     noise = torch.zeros_like(posterior_state)
@@ -148,8 +172,9 @@ class UDLFStageAModel(nn.Module):
             kl_terms.append(kl)
 
         stacked_embeds = torch.stack(token_embeds, dim=1)
-        prior_logits = self.readout(torch.stack(prior_states, dim=1), stacked_embeds, self.output_weight)
-        posterior_logits = self.readout(torch.stack(posterior_states, dim=1), stacked_embeds, self.output_weight)
+        identity = self.slot_identity_features()
+        prior_logits = self.readout(torch.stack(prior_states, dim=1), stacked_embeds, self.output_weight, identity)
+        posterior_logits = self.readout(torch.stack(posterior_states, dim=1), stacked_embeds, self.output_weight, identity)
         return PosteriorPrefixOutput(
             prior_logits=prior_logits,
             posterior_logits=posterior_logits,

@@ -490,3 +490,24 @@ This file records concise action summaries only. Detailed planning belongs in
   rank `1.82/16` and pairwise cosine `0.941`. Diffusion removal changes loss by
   only `-0.0006`; reset/shuffled carry worsens loss by `+0.133/+0.205`, proving
   the state is useful but trained through an overly short credit horizon.
+- Implemented the first full UDLF failure remediation. A shared normalized,
+  trainable slot identity now enters injection, dynamics, and readout; initial
+  latent slots are non-collapsed; training reports slot cosine, centered RMS,
+  and participation rank every step.
+- Reallocated the 64M budget by tying the 50,257-token input/output matrix and
+  increasing latent width from 512 to 792. Both UDLF templates now build
+  `64,025,937` parameters.
+- Added independent random 64-256 token credit horizons and periodic full BPTT
+  every 32 steps. Auto-batch probes the full path when periodic full BPTT is
+  enabled, preventing a truncated-path batch from later OOMing.
+- Fixed tied-embedding initialization after the first CUDA gate exposed loss
+  `76.5` and grad norm `666`; embedding `std=0.02` restored random-baseline
+  scale. Raising initial latent RMS from 0.02 to 1 reduced first-injection
+  finite-difference gain from about 50 to `1.015`.
+- Final local RTX 5060 gate used the complete 64.03M model, real FineWeb-Edu,
+  and full 128-token BPTT. It produced finite loss `10.875`, grad norm `7.71`,
+  slot rank `14.93/16`, pair cosine `0.004`, fixed sigma `0.01`, and no OOM.
+  Focused model/training tests passed: `34 passed`.
+- Restricted pytest discovery to `tests/`. An unrestricted discovery run had
+  incorrectly collected vendored Mamba tests and the unrelated untracked
+  `pony_remote` workspace, producing external dependency and data-path errors.

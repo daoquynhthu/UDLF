@@ -7,7 +7,7 @@ from datasets import Dataset, DatasetDict
 
 from udlf.data import QueryRecallDataset, RealTokenQueryRecallDataset, RepeatingPatternDataset, TokenDatasetFromDisk
 from udlf.training.config import train_config_from_dict
-from udlf.training.train import _build_optimizer, run_stage_a
+from udlf.training.train import _build_optimizer, _choose_segment_len, run_stage_a
 
 
 def test_stage_a_training_writes_metrics(tmp_path):
@@ -249,6 +249,24 @@ def test_train_config_accepts_parameters_and_steps_alias():
 
     assert config.max_steps == 7
     assert config.batch_size == 5
+
+
+def test_segment_schedule_uses_random_horizons_and_periodic_full_bptt():
+    config = train_config_from_dict(
+        {
+            "segment_len": 64,
+            "segment_len_min": 64,
+            "segment_len_max": 256,
+            "full_bptt_every": 8,
+        }
+    )
+    generator = torch.Generator().manual_seed(19)
+
+    sampled = _choose_segment_len(config, generator, torch.device("cpu"), step=1)
+    full = _choose_segment_len(config, generator, torch.device("cpu"), step=8)
+
+    assert 64 <= sampled <= 256
+    assert full == 0
 
 
 def test_train_config_passes_mamba_official_alignment_parameters():

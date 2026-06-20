@@ -557,3 +557,27 @@ Console policy for future local/remote experiments:
   interactive debugging needs live step logs.
 - Evaluators and checkers should keep their default compact one-line output.
   Full JSON should be written to files and printed only with `--print-json`.
+
+## UDLF Failure Remediation
+
+Implementation status: complete locally; remote persistence validation pending.
+
+1. Preserve slot identity throughout observation injection, latent interaction,
+   and readout using one shared trainable identity tensor normalized to latent
+   RMS scale.
+2. Initialize the physical latent state at its normal RMS scale and initialize
+   tied token embeddings at `std=0.02`; reject any gate with non-finite values,
+   anomalous random-baseline loss, or first-step amplification.
+3. Tie input/output vocabulary weights and set `latent_dim=792`, yielding
+   `64,025,937` trainable parameters while moving capacity into the dynamics
+   core.
+4. Train with random 64-256-token truncation and a full-sequence BPTT step every
+   32 optimizer steps. Keep truncation sampling on a generator independent of
+   Brownian noise. Probe auto-batch against full BPTT, not the cheap truncated
+   path.
+5. Run a 300-500 step remote 4090 gate first. Record fixed-sample validation
+   loss, slot rank/cosine, grad norm distributions, full-BPTT step behavior,
+   throughput, and reserved VRAM.
+6. Launch a replacement 3000-step run only if the medium gate retains slot rank
+   >= 8, pair cosine < 0.8, finite gradients, and a credible loss trajectory.
+   The failed historical run remains the control and must not be overwritten.

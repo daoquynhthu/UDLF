@@ -43,13 +43,19 @@ def component_loss(model, batch: torch.Tensor, mode: str) -> float:
         if mode == "stateless":
             state = model.init_state(batch.shape[0], device=batch.device, dtype=model.embedding.weight.dtype)
         token = model.embedding(batch[:, t])
+        identity = model.slot_identity_features()
         if mode != "prior_only":
-            state = model.inject(state, token)
+            state = model.inject(state, token, identity)
         if mode != "inject_only":
-            state = model.prior.euler_maruyama(state, token)
+            state = model.prior.euler_maruyama(state, token, slot_identity=identity)
         states.append(state)
         embeds.append(token)
-    logits = model.readout(torch.stack(states, dim=1), torch.stack(embeds, dim=1), model.output_weight)
+    logits = model.readout(
+        torch.stack(states, dim=1),
+        torch.stack(embeds, dim=1),
+        model.output_weight,
+        model.slot_identity_features(),
+    )
     return float(sequence_loss(logits, batch[:, 1:]).cpu())
 
 
@@ -80,7 +86,10 @@ def main() -> int:
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     config = train_config_from_dict(checkpoint["config"])
     model = UDLFStageAModel(config.model_config()).cuda().eval()
-    model.load_state_dict(normalize_state_dict_for_model(model, checkpoint["model"]))
+    state_dict = normalize_state_dict_for_model(model, checkpoint["model"])
+    if "slot_identity" not in state_dict:
+        state_dict["slot_identity"] = torch.zeros_like(model.slot_identity)
+    model.load_state_dict(state_dict)
 
     dataset = load_from_disk(str(args.data))[config.validation_split]
     rows = [dataset[index][config.data_column][: config.seq_len + 1] for index in range(args.batch_size)]

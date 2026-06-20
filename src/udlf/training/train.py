@@ -69,6 +69,29 @@ def _grad_norm(parameters) -> float:
     return float(total.sqrt().cpu())
 
 
+@torch.no_grad()
+def _slot_geometry_metrics(state: torch.Tensor) -> dict[str, float]:
+    state = state.detach().float()
+    normalized = F.normalize(state, dim=-1)
+    cosine = normalized @ normalized.transpose(-1, -2)
+    slots = state.shape[-2]
+    if slots > 1:
+        off_diagonal = (cosine.sum(dim=(-2, -1)) - slots) / (slots * (slots - 1))
+        pair_cosine = off_diagonal.mean()
+    else:
+        pair_cosine = cosine.new_ones(())
+
+    centered = state - state.mean(dim=-2, keepdim=True)
+    gram = centered @ centered.transpose(-1, -2)
+    eigenvalues = torch.linalg.eigvalsh(gram).clamp_min(0)
+    participation_rank = eigenvalues.sum(dim=-1).square() / eigenvalues.square().sum(dim=-1).clamp_min(1e-12)
+    return {
+        "slot_pair_cosine": float(pair_cosine.cpu()),
+        "slot_centered_rms": float(centered.pow(2).mean().sqrt().cpu()),
+        "slot_participation_rank": float(participation_rank.mean().cpu()),
+    }
+
+
 def _parameter_count(model: nn.Module) -> int:
     return sum(parameter.numel() for parameter in model.parameters())
 
@@ -390,12 +413,13 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
             generator = make_noise_generator(device, train_config.seed + 12345)
             with _autocast_context(device, train_config.amp):
                 if isinstance(model, UDLFStageAModel):
-                    if train_config.segment_len > 0 and train_config.detach_state_between_segments:
+                    probe_segment_len = 0 if train_config.full_bptt_every > 0 else train_config.segment_len
+                    if probe_segment_len > 0 and train_config.detach_state_between_segments:
                         loss, final_state = _backward_segmented(
                             model,
                             batch,
                             loss_mask=None,
-                            segment_len=train_config.segment_len,
+                            segment_len=probe_segment_len,
                             generator=generator,
                             diagnostics=None,
                             grad_scale=1.0,
@@ -405,7 +429,7 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
                             model,
                             batch,
                             loss_mask=None,
-                            segment_len=train_config.segment_len,
+                            segment_len=probe_segment_len,
                             generator=generator,
                             detach_state_between_segments=train_config.detach_state_between_segments,
                             diagnostics=None,
@@ -546,13 +570,14 @@ def _stability_diagnostics(
 
     with torch.no_grad():
         injection_direction = _unit_like(state)
-        injected = model.inject(state, token_embed)
-        injected_perturbed = model.inject(state + eps * injection_direction, token_embed)
+        identity = model.slot_identity_features()
+        injected = model.inject(state, token_embed, identity)
+        injected_perturbed = model.inject(state + eps * injection_direction, token_embed, identity)
         injection_gain = (injected_perturbed - injected).norm() / (eps * injection_direction.norm() + 1e-12)
 
         drift_direction = _unit_like(injected)
-        drift_base, _ = model.prior.drift_and_sigma(injected, token_embed)
-        drift_perturbed, _ = model.prior.drift_and_sigma(injected + eps * drift_direction, token_embed)
+        drift_base, _ = model.prior.drift_and_sigma(injected, token_embed, identity)
+        drift_perturbed, _ = model.prior.drift_and_sigma(injected + eps * drift_direction, token_embed, identity)
         drift_gain = (drift_perturbed - drift_base).norm() / (eps * drift_direction.norm() + 1e-12)
 
         base = injected.detach()
@@ -562,8 +587,8 @@ def _stability_diagnostics(
         z_base = base
         z_perturbed = perturbed
         for _ in range(model.config.solver_steps):
-            drift_base, _ = model.prior.drift_and_sigma(z_base, token_embed)
-            drift_perturbed, _ = model.prior.drift_and_sigma(z_perturbed, token_embed)
+            drift_base, _ = model.prior.drift_and_sigma(z_base, token_embed, identity)
+            drift_perturbed, _ = model.prior.drift_and_sigma(z_perturbed, token_embed, identity)
             z_base = z_base + drift_base * ds
             z_perturbed = z_perturbed + drift_perturbed * ds
         growth = (z_perturbed - z_base).norm() / (eps * direction.norm() + 1e-12)
@@ -596,7 +621,15 @@ def _paired_stats(values: list[float]) -> tuple[float, float, float, float]:
     return mean, sem, mean - margin, mean + margin
 
 
-def _choose_segment_len(config: UDLFTrainConfig, generator: torch.Generator, device: torch.device) -> int:
+def _choose_segment_len(
+    config: UDLFTrainConfig,
+    generator: torch.Generator,
+    device: torch.device,
+    *,
+    step: int,
+) -> int:
+    if config.full_bptt_every > 0 and step % config.full_bptt_every == 0:
+        return 0
     if config.segment_len_min > 0 and config.segment_len_max > 0:
         value = torch.randint(
             config.segment_len_min,
@@ -874,6 +907,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
 
     noise_seed = train_config.noise_seed if train_config.noise_seed is not None else train_config.seed + 2
     noise_generator = make_noise_generator(device, noise_seed)
+    segment_generator = make_noise_generator(device, train_config.seed + 3)
     metric_logger = JsonlMetricLogger(
         run_dir / "metrics.jsonl",
         flush_every=train_config.metrics_flush_every,
@@ -918,7 +952,14 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 batch_tokens += train_config.batch_size * (batch.shape[1] - 1)
                 with _autocast_context(device, train_config.amp):
                     did_backward = False
-                    segment_len = _choose_segment_len(train_config, noise_generator, device)
+                    segment_len = _choose_segment_len(
+                        train_config,
+                        segment_generator,
+                        device,
+                        step=step,
+                    )
+                    architecture_metrics["train_segment_len"] = float(segment_len)
+                    architecture_metrics["train_full_bptt"] = float(segment_len == 0)
                     if isinstance(model, UDLFStageAModel):
                         if train_config.mode == "stage-b":
                             dropout_value = torch.rand((), generator=noise_generator, device=device)
@@ -1007,6 +1048,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 assert final_state is not None
                 metrics["diffusion_mode"] = model_config.diffusion_mode
                 metrics["state_rms"] = float(final_state.detach().pow(2).mean().sqrt().cpu())
+                metrics.update(_slot_geometry_metrics(final_state))
                 if train_config.stability_diagnostics and (
                     train_config.stability_diagnostic_every == 0 or step % train_config.stability_diagnostic_every == 0
                 ):

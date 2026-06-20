@@ -18,7 +18,8 @@ If an issue does not need planned resolution, it does not belong in this file.
 
 ### UDLF latent slots collapse under the current 64M training regime
 
-Status: open and blocks another full-scale UDLF run.
+Status: remediation implemented; medium-scale persistence gate still blocks
+another full 3000-step UDLF run.
 
 Evidence:
 
@@ -34,14 +35,23 @@ Evidence:
 
 Resolution plan:
 
-1. Add learned slot identities and a slot-rank diagnostic gate.
-2. Tie vocabulary matrices or move to a 16k tokenizer and reallocate capacity
-   to the dynamics core.
-3. Introduce randomized 64-512 credit horizons with periodic full-512 steps.
-4. Validate each change separately before combining them.
+1. Completed: add persistent learned slot identities, non-collapsed initial
+   states, and per-step slot cosine/centered-RMS/participation-rank metrics.
+2. Completed: tie the 50,257-token vocabulary matrix and increase latent width
+   to 792, producing a 64,025,937-parameter model.
+3. Completed: introduce randomized 64-256 credit horizons with periodic
+   full-512 BPTT every 32 optimizer steps. Auto-batch now probes the full-BPTT
+   path whenever this schedule is enabled.
+4. Completed local gate: full repaired model on real FineWeb-Edu remained
+   finite and started at slot rank `14.93/16`, pair cosine `0.004`, injection
+   finite-difference gain `1.015`, and loss `10.875`.
+5. Next: run a 300-500 step matched-token remote gate and reject the repair if
+   rank collapses toward 2, validation loss fails to improve, or full-BPTT
+   steps destabilize gradients.
 
-Exit criteria: a medium-scale run retains materially more than two effective
-slot directions and improves fixed-sample validation loss at matched tokens.
+Exit criteria: a medium-scale run retains at least eight effective slot
+directions, keeps mean pair cosine below 0.8, and improves fixed-sample
+validation loss over the failed checkpoint trajectory at matched tokens.
 
 ### Workspace agent can load a stale custom-scan binary
 

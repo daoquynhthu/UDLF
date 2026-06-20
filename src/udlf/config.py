@@ -25,6 +25,8 @@ class UDLFModelConfig:
     fixed_sigma: float = 0.01
     rms_eps: float = 1e-6
     tie_embeddings: bool = True
+    initial_slot_std: float = 1.0
+    slot_identity_std: float = 0.02
 
     def __post_init__(self) -> None:
         if self.vocab_size <= 1:
@@ -41,3 +43,5 @@ class UDLFModelConfig:
             raise ValueError("require 0 < sigma_min < sigma_max")
         if self.fixed_sigma < 0:
             raise ValueError("fixed_sigma must be non-negative")
+        if self.initial_slot_std <= 0 or self.slot_identity_std <= 0:
+            raise ValueError("initial_slot_std and slot_identity_std must be positive")

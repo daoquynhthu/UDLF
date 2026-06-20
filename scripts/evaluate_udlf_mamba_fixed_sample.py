@@ -22,7 +22,10 @@ def load_model(path: Path):
         model = UDLFStageAModel(replace(config.model_config(), diffusion_mode="ode"))
     else:
         model = MambaLMModel(config.mamba_config())
-    model.load_state_dict(normalize_state_dict_for_model(model, checkpoint["model"]))
+    state_dict = normalize_state_dict_for_model(model, checkpoint["model"])
+    if config.architecture == "udlf" and "slot_identity" not in state_dict:
+        state_dict["slot_identity"] = torch.zeros_like(model.slot_identity)
+    model.load_state_dict(state_dict)
     return model.cuda().eval(), config
 
 
