@@ -646,6 +646,19 @@ def _choose_segment_len(
     return config.segment_len
 
 
+def _step_batch_schedule(config: UDLFTrainConfig, segment_len: int) -> tuple[int, int]:
+    target_examples = config.batch_size * config.grad_accum_steps
+    if segment_len == 0 and config.full_bptt_batch_size > 0:
+        batch_size = config.full_bptt_batch_size
+    elif segment_len > 0:
+        base_horizon = config.segment_len_min or config.segment_len or segment_len
+        batch_size = max(1, min(config.batch_size, config.batch_size * base_horizon // segment_len))
+    else:
+        batch_size = config.batch_size
+    grad_accum = math.ceil(target_examples / batch_size)
+    return batch_size, grad_accum
+
+
 @torch.no_grad()
 def _evaluate_loss(
     model: nn.Module,
@@ -964,17 +977,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 step=step,
             )
             full_bptt = segment_len == 0
-            step_batch_size = (
-                train_config.full_bptt_batch_size
-                if full_bptt and train_config.full_bptt_batch_size > 0
-                else train_config.batch_size
-            )
-            target_examples = train_config.batch_size * train_config.grad_accum_steps
-            step_grad_accum = (
-                math.ceil(target_examples / step_batch_size)
-                if full_bptt and train_config.full_bptt_batch_size > 0
-                else train_config.grad_accum_steps
-            )
+            step_batch_size, step_grad_accum = _step_batch_schedule(train_config, segment_len)
             architecture_metrics["train_segment_len"] = float(segment_len)
             architecture_metrics["train_full_bptt"] = float(full_bptt)
             architecture_metrics["train_step_batch_size"] = float(step_batch_size)

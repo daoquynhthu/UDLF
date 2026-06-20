@@ -7,7 +7,7 @@ from datasets import Dataset, DatasetDict
 
 from udlf.data import QueryRecallDataset, RealTokenQueryRecallDataset, RepeatingPatternDataset, TokenDatasetFromDisk
 from udlf.training.config import train_config_from_dict
-from udlf.training.train import _build_optimizer, _choose_segment_len, run_stage_a
+from udlf.training.train import _build_optimizer, _choose_segment_len, _step_batch_schedule, run_stage_a
 
 
 def test_stage_a_training_writes_metrics(tmp_path):
@@ -303,6 +303,25 @@ def test_full_bptt_step_uses_dedicated_micro_batch(tmp_path):
     assert row["train_step_batch_size"] == 1.0
     assert row["train_step_grad_accum"] == 4.0
     assert row["train_step_effective_batch_size"] == 4.0
+
+
+def test_random_horizon_scales_batch_to_constant_activation_budget():
+    config = train_config_from_dict(
+        {
+            "batch_size": 64,
+            "grad_accum_steps": 1,
+            "segment_len": 64,
+            "segment_len_min": 64,
+            "segment_len_max": 256,
+            "full_bptt_every": 32,
+            "full_bptt_batch_size": 12,
+        }
+    )
+
+    assert _step_batch_schedule(config, 64) == (64, 1)
+    assert _step_batch_schedule(config, 128) == (32, 2)
+    assert _step_batch_schedule(config, 256) == (16, 4)
+    assert _step_batch_schedule(config, 0) == (12, 6)
 
 
 def test_train_config_passes_mamba_official_alignment_parameters():

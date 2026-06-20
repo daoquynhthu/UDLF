@@ -52,6 +52,10 @@ Resolution plan:
    the full-BPTT-safe batch 12 for every truncated step reduced throughput to
    `829 tok/s`. Normal truncated steps now auto-batch independently; only full
    steps use batch 12 with compensating accumulation.
+7. Completed horizon-aware correction: a second gate showed that batch 64 was
+   safe at horizon 64 but saturated 24 GiB on a longer random horizon. Batch
+   now scales inversely with horizon and accumulation scales up, keeping the
+   activation budget and examples per optimizer step approximately constant.
 
 Exit criteria: a medium-scale run retains at least eight effective slot
 directions, keeps mean pair cosine below 0.8, and improves fixed-sample

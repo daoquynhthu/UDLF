@@ -575,7 +575,9 @@ Implementation status: complete locally; remote persistence validation pending.
    32 optimizer steps. Keep truncation sampling on a generator independent of
    Brownian noise. Auto-batch truncated steps independently, and use a separately
    validated full-BPTT micro-batch with compensating accumulation so the rare
-   full step does not throttle every ordinary step.
+   full step does not throttle every ordinary step. Scale random-horizon batch
+   inversely with horizon (for example 64x64, 32x128, 16x256) and compensate
+   with accumulation so long random horizons cannot exceed the probed budget.
 5. Run a 300-500 step remote 4090 gate first. Record fixed-sample validation
    loss, slot rank/cosine, grad norm distributions, full-BPTT step behavior,
    throughput, and reserved VRAM.

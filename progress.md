@@ -520,3 +520,8 @@ This file records concise action summaries only. Detailed planning belongs in
   truncated graph while full steps use batch 12 and compensating accumulation.
   Throughput now uses cumulative actual tokens. The full-step micro-batch path
   has a dedicated regression test; the suite passes `36` tests.
+- The second remote gate selected batch 64 at the 64-token horizon and reached
+  `4383 tok/s` on step 1, but a subsequent longer random horizon saturated
+  24 GiB because batch did not scale with truncation length. Stopped the run
+  and added inverse horizon/batch scheduling with compensating accumulation:
+  64x64, 32x128, 16x256, and measured 12x512. The suite passes `37` tests.
