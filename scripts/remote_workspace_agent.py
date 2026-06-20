@@ -311,8 +311,7 @@ class WorkspaceState:
             for key, value in payload.get("params", {}).items():
                 flag = "-" + str(key)
                 if isinstance(value, bool):
-                    if value:
-                        wrapper.append(flag)
+                    wrapper.extend([flag, json.dumps(value)])
                 elif value is not None:
                     wrapper.extend([flag, str(value)])
             args = [

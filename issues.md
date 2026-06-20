@@ -16,21 +16,23 @@ If an issue does not need planned resolution, it does not belong in this file.
 
 ## Active
 
-### Custom selective scan remains below the performance gate
+### Workspace agent can load a stale custom-scan binary
 
-The CUDA implementation is numerically correct but assigns one thread to an
-entire channel recurrence and reaches only `70.6` token/s at batch 2, sequence
-length 512 on the RTX 4090.
+The optimized CUDA implementation reaches `21,303` token/s at batch 36 through
+the explicit build environment, but the default train-job path measured only
+`1,308` token/s with identical model settings, consistent with a stale serial
+extension binary. This does not block a supervised shell launch but does block
+using the generic train endpoint for the formal Mamba run.
 
 Resolution plan:
 
-1. Map one warp to each channel and distribute 16 state elements over lanes.
-2. Use warp reductions for output and delta-gradient accumulation.
-3. Re-run gradient parity, memory probing, and sustained model throughput.
-4. Run the 3000-step Mamba baseline only after that gate passes.
+1. Launch the formal run through the explicit VS/CUDA build environment.
+2. Give custom extension variants content-addressed names or build directories.
+3. Restart the workspace agent after deploying corrected boolean serialization.
+4. Revalidate the generic train endpoint before using it for later runs.
 
-Exit criteria: parity remains within tolerance and 64M throughput is suitable
-for a fair UDLF comparison.
+Exit criteria: generic and explicit launch paths load the same extension and
+produce comparable sustained throughput.
 
 ### 64M FineWeb-Edu ablation has not run yet
 

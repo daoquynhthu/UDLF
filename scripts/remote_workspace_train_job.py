@@ -4,8 +4,36 @@ import argparse
 import json
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
+
+
+def initialize_windows_cuda_build_env(env: dict[str, str]) -> None:
+    if os.name != "nt":
+        return
+    roots = [Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Microsoft Visual Studio" / "2022"]
+    candidates = [path for root in roots if root.is_dir() for path in root.glob("*/Common7/Tools/VsDevCmd.bat")]
+    if not candidates:
+        raise RuntimeError("fused Mamba training requires Visual Studio VsDevCmd.bat")
+    with tempfile.NamedTemporaryFile("w", suffix=".bat", delete=False, encoding="ascii") as handle:
+        handle.write(f'@call "{candidates[0]}" -arch=x64 -host_arch=x64 >nul\n@set\n')
+        batch_path = Path(handle.name)
+    try:
+        completed = subprocess.run(
+            ["cmd.exe", "/d", "/c", str(batch_path)],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    finally:
+        batch_path.unlink(missing_ok=True)
+    for line in completed.stdout.splitlines():
+        key, separator, value = line.partition("=")
+        if separator:
+            env[key] = value
 
 
 def creation_flags() -> int:
@@ -59,6 +87,10 @@ def main() -> int:
     generated.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     env = os.environ.copy()
+    if config.get("architecture") == "mamba" and config.get("mamba_backend") == "fused":
+        initialize_windows_cuda_build_env(env)
+        env["TORCH_CUDA_ARCH_LIST"] = "8.9"
+        env["UDLF_CUDA_BUILD_STRICT"] = "1"
     env["UDLF_PYTHON"] = str(args.python)
     env["PYTHONPATH"] = str(repo / "src")
     env["PYTHON_EXECUTABLE"] = str(args.python)

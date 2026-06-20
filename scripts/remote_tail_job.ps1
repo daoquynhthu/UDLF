@@ -1,7 +1,7 @@
-param([string[]]$Arguments)
+param([string]$JobId, [string]$RunName = "")
 
-if ($Arguments.Count -lt 1) { throw "job id is required" }
-$root = Join-Path "L:\UDLF_REMOTE\workspace-service\jobs" $Arguments[0]
+if (-not $JobId) { throw "job id is required" }
+$root = Join-Path "L:\UDLF_REMOTE\workspace-service\jobs" $JobId
 foreach ($name in @("stdout.log", "stderr.log")) {
     $path = Join-Path $root $name
     if (Test-Path $path) {
@@ -9,8 +9,8 @@ foreach ($name in @("stdout.log", "stderr.log")) {
         Get-Content $path -Tail 80
     }
 }
-if ($Arguments.Count -ge 2) {
-    $runRoot = Join-Path "L:\UDLF_REMOTE\runs" $Arguments[1]
+if ($RunName) {
+    $runRoot = Join-Path "L:\UDLF_REMOTE\runs" $RunName
     Get-ChildItem $runRoot -Recurse -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
     $trainLog = Join-Path $runRoot "train.log"
     if (Test-Path $trainLog) {

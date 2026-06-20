@@ -1,4 +1,4 @@
-param([string[]]$Arguments)
+param([string]$Label, [int]$Batch = 2)
 
 $ErrorActionPreference = "Stop"
 $python = "L:\NAIME_REMOTE\envs\.venv312\Scripts\python.exe"
@@ -18,13 +18,18 @@ $config = "L:\UDLF_REMOTE\runs\mamba_custom_scan_smoke\workspace_config.json"
 $smokeConfig = "L:\UDLF_REMOTE\runs\mamba_custom_scan_smoke\manual_smoke_config.json"
 $settings = Get-Content $config -Raw | ConvertFrom-Json
 $settings.auto_batch = $false
-$settings.batch_size = 2
+$smokeBatch = $Batch
+$settings.run_dir = "L:\UDLF_REMOTE\runs\mamba_custom_scan_batch$smokeBatch"
+$smokeConfig = Join-Path $settings.run_dir "manual_smoke_config.json"
+New-Item -ItemType Directory -Force -Path $settings.run_dir | Out-Null
+$settings.batch_size = $smokeBatch
 $settings.grad_accum_steps = 1
 $settings.max_steps = 2
 $settings.eval_every = 0
 $settings.save_every = 0
 $settings.latest_every = 0
 $settings.allow_run_overwrite = $true
+$settings | Add-Member -NotePropertyName resume -NotePropertyValue "" -Force
 [IO.File]::WriteAllText($smokeConfig, ($settings | ConvertTo-Json -Depth 20), [Text.UTF8Encoding]::new($false))
 & $python -m udlf.training.train --config $smokeConfig
 if ($LASTEXITCODE -ne 0) { throw "Mamba model smoke failed with exit code $LASTEXITCODE" }

@@ -474,4 +474,9 @@ This file records concise action summaries only. Detailed planning belongs in
   forward/backward backend with 64-token checkpoint recomputation.
 - Matched forward plus all eight gradient groups against PyTorch across a chunk
   boundary and completed a finite 64M fused training smoke.
-- Step 2 reached only `70.6` token/s at batch 2; warp optimization is required.
+- Replaced the serial scan with warp-per-channel state updates and block-level
+  shared reductions for `B/C` gradients. Gradient parity still passes.
+- Remote 64M throughput reached `8,490` token/s at batch 8, `14,360` at batch
+  16, `20,237` at batch 32, and `21,303` at batch 36. Batch 36 reserves
+  `20.73` GiB and stays below 95% of currently available VRAM.
+- Found and fixed workspace-agent boolean overrides silently dropping `false`.
