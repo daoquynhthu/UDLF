@@ -48,6 +48,10 @@ Resolution plan:
 5. Next: run a 300-500 step matched-token remote gate and reject the repair if
    rank collapses toward 2, validation loss fails to improve, or full-BPTT
    steps destabilize gradients.
+6. Completed scheduling correction: the first remote gate proved that using
+   the full-BPTT-safe batch 12 for every truncated step reduced throughput to
+   `829 tok/s`. Normal truncated steps now auto-batch independently; only full
+   steps use batch 12 with compensating accumulation.
 
 Exit criteria: a medium-scale run retains at least eight effective slot
 directions, keeps mean pair cosine below 0.8, and improves fixed-sample

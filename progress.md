@@ -511,3 +511,12 @@ This file records concise action summaries only. Detailed planning belongs in
 - Restricted pytest discovery to `tests/`. An unrestricted discovery run had
   incorrectly collected vendored Mamba tests and the unrelated untracked
   `pony_remote` workspace, producing external dependency and data-path errors.
+- Synced the repair to the isolated remote workspace and measured full 512-token
+  BPTT memory on the RTX 4090. Batch 12 peaked at `20.67 GiB` and passed the
+  current-free-VRAM 95% budget; batch 13 peaked at `22.07 GiB` and failed it.
+- Stopped the first 40-step remote gate after it exposed a scheduling defect:
+  constraining all truncated steps to the full-BPTT-safe batch 12 yielded only
+  `829 tok/s`. Added dual batch scheduling so normal steps auto-batch on the
+  truncated graph while full steps use batch 12 and compensating accumulation.
+  Throughput now uses cumulative actual tokens. The full-step micro-batch path
+  has a dedicated regression test; the suite passes `36` tests.

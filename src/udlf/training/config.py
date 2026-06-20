@@ -53,6 +53,7 @@ class UDLFTrainConfig:
     segment_len_min: int = 0
     segment_len_max: int = 0
     full_bptt_every: int = 0
+    full_bptt_batch_size: int = 0
     detach_state_between_segments: bool = True
     prior_path_samples: int = 1
     prior_state_selection: str = "first"
@@ -187,6 +188,10 @@ class UDLFTrainConfig:
             raise ValueError("segment_len_min must be <= segment_len_max")
         if self.full_bptt_every < 0:
             raise ValueError("full_bptt_every must be >= 0")
+        if self.full_bptt_batch_size < 0:
+            raise ValueError("full_bptt_batch_size must be >= 0")
+        if self.full_bptt_batch_size > 0 and self.full_bptt_every == 0:
+            raise ValueError("full_bptt_batch_size requires full_bptt_every > 0")
         if self.intervention_perturb_trials < 1:
             raise ValueError("intervention_perturb_trials must be >= 1")
         if self.intervention_pair_trials < 1:

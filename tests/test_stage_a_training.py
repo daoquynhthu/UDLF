@@ -269,6 +269,42 @@ def test_segment_schedule_uses_random_horizons_and_periodic_full_bptt():
     assert full == 0
 
 
+def test_full_bptt_step_uses_dedicated_micro_batch(tmp_path):
+    run_dir = tmp_path / "full_bptt_batch"
+    run_stage_a(
+        config={
+            "mode": "stage-a",
+            "device": "cpu",
+            "allow_cpu_training": True,
+            "vocab_size": 24,
+            "seq_len": 8,
+            "batch_size": 2,
+            "grad_accum_steps": 2,
+            "steps": 1,
+            "latent_slots": 4,
+            "latent_dim": 16,
+            "embed_dim": 16,
+            "ff_multiplier": 2,
+            "latent_heads": 4,
+            "readout_heads": 2,
+            "solver_steps": 1,
+            "diffusion_mode": "ode",
+            "segment_len": 3,
+            "full_bptt_every": 1,
+            "full_bptt_batch_size": 1,
+            "async_checkpoint": False,
+            "eval_every": 0,
+        },
+        run_dir=run_dir,
+    )
+
+    row = json.loads((run_dir / "metrics.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert row["train_full_bptt"] == 1.0
+    assert row["train_step_batch_size"] == 1.0
+    assert row["train_step_grad_accum"] == 4.0
+    assert row["train_step_effective_batch_size"] == 4.0
+
+
 def test_train_config_passes_mamba_official_alignment_parameters():
     config = train_config_from_dict(
         {

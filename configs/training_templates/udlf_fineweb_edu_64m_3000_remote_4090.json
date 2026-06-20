@@ -40,6 +40,7 @@
   "segment_len_min": 64,
   "segment_len_max": 256,
   "full_bptt_every": 32,
+  "full_bptt_batch_size": 12,
   "detach_state_between_segments": true,
   "tie_embeddings": true,
   "amp": true,

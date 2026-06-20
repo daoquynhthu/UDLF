@@ -573,8 +573,9 @@ Implementation status: complete locally; remote persistence validation pending.
    core.
 4. Train with random 64-256-token truncation and a full-sequence BPTT step every
    32 optimizer steps. Keep truncation sampling on a generator independent of
-   Brownian noise. Probe auto-batch against full BPTT, not the cheap truncated
-   path.
+   Brownian noise. Auto-batch truncated steps independently, and use a separately
+   validated full-BPTT micro-batch with compensating accumulation so the rare
+   full step does not throttle every ordinary step.
 5. Run a 300-500 step remote 4090 gate first. Record fixed-sample validation
    loss, slot rank/cosine, grad norm distributions, full-BPTT step behavior,
    throughput, and reserved VRAM.

@@ -413,7 +413,11 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
             generator = make_noise_generator(device, train_config.seed + 12345)
             with _autocast_context(device, train_config.amp):
                 if isinstance(model, UDLFStageAModel):
-                    probe_segment_len = 0 if train_config.full_bptt_every > 0 else train_config.segment_len
+                    probe_segment_len = (
+                        0
+                        if train_config.full_bptt_every > 0 and train_config.full_bptt_batch_size == 0
+                        else train_config.segment_len
+                    )
                     if probe_segment_len > 0 and train_config.detach_state_between_segments:
                         loss, final_state = _backward_segmented(
                             model,
@@ -881,6 +885,11 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
         raise RuntimeError("CPU training is disabled; set allow_cpu_training=true only for tests or tiny debugging")
     logger = setup_logger(run_dir, console_log_mode=train_config.console_log_mode)
     _probe_auto_batch_size(train_config, device, logger)
+    if train_config.full_bptt_batch_size > train_config.batch_size:
+        raise RuntimeError(
+            "full_bptt_batch_size must not exceed the selected training batch_size; "
+            "lower it or rerun the full-BPTT memory probe"
+        )
 
     model, model_config = _build_model(train_config, device)
     if train_config.compile_model:
@@ -934,6 +943,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
         start_step,
     )
     start_time = time.time()
+    cumulative_tokens = 0
     step = start_step
     try:
         for step in range(start_step + 1, train_config.max_steps + 1):
@@ -947,19 +957,34 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
             batch_tokens = 0
             architecture_metrics: dict[str, float] = {}
             dynamics_diagnostics: dict[str, list[torch.Tensor]] | None = {} if train_config.dynamics_diagnostics else None
-            for accum_index in range(train_config.grad_accum_steps):
-                batch, loss_mask = _sample_training_batch(train_dataset, train_config.batch_size, device)
-                batch_tokens += train_config.batch_size * (batch.shape[1] - 1)
+            segment_len = _choose_segment_len(
+                train_config,
+                segment_generator,
+                device,
+                step=step,
+            )
+            full_bptt = segment_len == 0
+            step_batch_size = (
+                train_config.full_bptt_batch_size
+                if full_bptt and train_config.full_bptt_batch_size > 0
+                else train_config.batch_size
+            )
+            target_examples = train_config.batch_size * train_config.grad_accum_steps
+            step_grad_accum = (
+                math.ceil(target_examples / step_batch_size)
+                if full_bptt and train_config.full_bptt_batch_size > 0
+                else train_config.grad_accum_steps
+            )
+            architecture_metrics["train_segment_len"] = float(segment_len)
+            architecture_metrics["train_full_bptt"] = float(full_bptt)
+            architecture_metrics["train_step_batch_size"] = float(step_batch_size)
+            architecture_metrics["train_step_grad_accum"] = float(step_grad_accum)
+            architecture_metrics["train_step_effective_batch_size"] = float(step_batch_size * step_grad_accum)
+            for accum_index in range(step_grad_accum):
+                batch, loss_mask = _sample_training_batch(train_dataset, step_batch_size, device)
+                batch_tokens += step_batch_size * (batch.shape[1] - 1)
                 with _autocast_context(device, train_config.amp):
                     did_backward = False
-                    segment_len = _choose_segment_len(
-                        train_config,
-                        segment_generator,
-                        device,
-                        step=step,
-                    )
-                    architecture_metrics["train_segment_len"] = float(segment_len)
-                    architecture_metrics["train_full_bptt"] = float(segment_len == 0)
                     if isinstance(model, UDLFStageAModel):
                         if train_config.mode == "stage-b":
                             dropout_value = torch.rand((), generator=noise_generator, device=device)
@@ -993,7 +1018,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                                 segment_len=segment_len,
                                 generator=noise_generator,
                                 diagnostics=dynamics_diagnostics,
-                                grad_scale=1.0 / train_config.grad_accum_steps,
+                                grad_scale=1.0 / step_grad_accum,
                             )
                             did_backward = True
                         else:
@@ -1009,12 +1034,12 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                     else:
                         micro_loss, final_state = _forward_causal_lm(model, batch, loss_mask)
                     if not did_backward:
-                        scaled_loss = micro_loss / train_config.grad_accum_steps
+                        scaled_loss = micro_loss / step_grad_accum
                         scaled_loss.backward()
                 loss = micro_loss if loss is None else loss + micro_loss.detach()
 
             assert loss is not None
-            loss_for_metrics = loss / train_config.grad_accum_steps
+            loss_for_metrics = loss / step_grad_accum
             grad_norm = _grad_norm(model.parameters())
             if train_config.grad_clip > 0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), train_config.grad_clip)
@@ -1023,12 +1048,13 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 scheduler.step()
 
             elapsed = max(time.time() - start_time, 1e-9)
+            cumulative_tokens += batch_tokens
             current_loss = float(loss_for_metrics.detach().cpu())
             metrics: dict[str, Any] = {
                 "step": step,
                 "loss_lm": current_loss,
                 "ppl_lm": float(math.exp(min(current_loss, 20.0))),
-                "tokens_per_second": round((step - start_step) * batch_tokens / elapsed, 3),
+                "tokens_per_second": round(cumulative_tokens / elapsed, 3),
                 "grad_norm": grad_norm,
                 "learning_rate": float(optimizer.param_groups[0]["lr"]),
                 "architecture": train_config.architecture,
