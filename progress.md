@@ -480,3 +480,8 @@ This file records concise action summaries only. Detailed planning belongs in
   16, `20,237` at batch 32, and `21,303` at batch 36. Batch 36 reserves
   `20.73` GiB and stays below 95% of currently available VRAM.
 - Found and fixed workspace-agent boolean overrides silently dropping `false`.
+- Completed the fused Mamba 64M 3000-step run without NaN/Inf metrics. Final
+  eval loss/ppl are `4.3347`/`76.30`, with last-100 throughput `44,718` tok/s.
+- UDLF finished at eval loss/ppl `5.0028`/`148.84` and `4,943` tok/s. Mamba is
+  better despite fewer parameters and about 44% fewer training tokens; strict
+  confirmation still needs matched tokens and a larger fixed validation set.

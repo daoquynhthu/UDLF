@@ -21,9 +21,29 @@ The 3000-step ablation uses `input_ids` with `seq_len=512`.
 | UDLF LLM | `configs/training_templates/udlf_fineweb_edu_64m_3000.json` | 64M | ~68.1M |
 | Mamba baseline | `configs/training_templates/mamba_fineweb_edu_64m_3000.json` | 64M | ~63.7M |
 
-The Mamba baseline is a pure PyTorch selective-state-space implementation. It
-uses the standard Mamba projection structure but not fused `mamba_ssm` kernels,
-because `mamba_ssm`, `causal_conv1d`, and `triton` are not installed locally.
+The formal Mamba baseline uses the repository-owned fused selective-scan CUDA
+backend. Its forward and all eight gradient groups were checked against the
+PyTorch recurrence across a 64-token checkpoint boundary before training.
+
+## Completed 3000-Step Comparison
+
+Both runs completed without NaN or Inf metrics.
+
+| model | params | batch | train tokens | final train loss | final eval loss | eval ppl | last-100 tok/s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| UDLF | 68,057,169 | 64 | 98.3M | 5.0348 | 5.0028 | 148.84 | 4,943 |
+| Mamba | 63,742,080 | 36 | 55.3M | 4.3047 | 4.3347 | 76.30 | 44,718 |
+
+Mamba has lower validation loss despite receiving about 44% fewer training
+tokens and having about 6.3% fewer parameters. At the Mamba token budget, UDLF
+is around step 1688; its surrounding 100-step mean training loss is 5.3303,
+compared with Mamba's final last-100 mean of 4.3104.
+
+This is strong evidence against the current UDLF configuration, but not a
+strict controlled estimate. The runs matched steps rather than tokens, model
+sizes differ, and each validation event used only four batches. Confirmation
+must match cumulative tokens and use a larger fixed validation sample. These
+mismatches currently favor UDLF, not Mamba, so they do not explain the gap.
 
 ## Run Policy
 
