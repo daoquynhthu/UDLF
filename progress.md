@@ -485,3 +485,8 @@ This file records concise action summaries only. Detailed planning belongs in
 - UDLF finished at eval loss/ppl `5.0028`/`148.84` and `4,943` tok/s. Mamba is
   better despite fewer parameters and about 44% fewer training tokens; strict
   confirmation still needs matched tokens and a larger fixed validation set.
+- Diagnosed the UDLF checkpoint on the same 128 validation sequences as Mamba:
+  loss `5.1396` versus `4.3899`. Final latent slots collapse to participation
+  rank `1.82/16` and pairwise cosine `0.941`. Diffusion removal changes loss by
+  only `-0.0006`; reset/shuffled carry worsens loss by `+0.133/+0.205`, proving
+  the state is useful but trained through an overly short credit horizon.

@@ -16,6 +16,33 @@ If an issue does not need planned resolution, it does not belong in this file.
 
 ## Active
 
+### UDLF latent slots collapse under the current 64M training regime
+
+Status: open and blocks another full-scale UDLF run.
+
+Evidence:
+
+- Step-3000 final-slot participation rank is `1.82/16` and pairwise cosine is
+  `0.941`.
+- Only `16.59M` of `68.06M` parameters remain outside the two vocabulary
+  matrices; Mamba has about `31.5M` non-embedding parameters.
+- Training detaches state every 64 tokens although the design calls for random
+  truncation lengths from 64 to 1024.
+- ODE evaluation changes loss by only `-0.0006`, while reset/shuffled carry
+  worsens loss by `+0.133/+0.205`; diffusion is not the main failure and the
+  persistent state is not unused.
+
+Resolution plan:
+
+1. Add learned slot identities and a slot-rank diagnostic gate.
+2. Tie vocabulary matrices or move to a 16k tokenizer and reallocate capacity
+   to the dynamics core.
+3. Introduce randomized 64-512 credit horizons with periodic full-512 steps.
+4. Validate each change separately before combining them.
+
+Exit criteria: a medium-scale run retains materially more than two effective
+slot directions and improves fixed-sample validation loss at matched tokens.
+
 ### Workspace agent can load a stale custom-scan binary
 
 The optimized CUDA implementation reaches `21,303` token/s at batch 36 through
@@ -34,9 +61,10 @@ Resolution plan:
 Exit criteria: generic and explicit launch paths load the same extension and
 produce comparable sustained throughput.
 
-### 64M FineWeb-Edu ablation has not run yet
+### 64M FineWeb-Edu ablation completed
 
-Status: open.
+Status: resolved on 2026-06-20. The historical plan below records the launch
+gate; both 3000-step runs and the actual comparison are now complete.
 
 Blocker classification:
 
