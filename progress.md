@@ -531,3 +531,8 @@ This file records concise action summaries only. Detailed planning belongs in
   full-BPTT micro-batch to 8; its clean measured peak was `13.38 GiB`, leaving
   enough margin for a long-lived process. Per-step accumulation rises to 8 so
   the optimizer still sees 64 sequences.
+- Launched the formal repaired UDLF 64M FineWeb-Edu 3000-step run as job
+  `5833830ea8854f4a9df8012dd224344a` in isolated run directory
+  `udlf_fineweb_edu_64m_slot_repair_3000`. Auto-batch selected normal batch 64
+  at a 14.63 GiB peak; periodic full-BPTT steps use batch 8 with accumulation
+  8. The historical failed run remains untouched.

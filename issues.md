@@ -18,8 +18,8 @@ If an issue does not need planned resolution, it does not belong in this file.
 
 ### UDLF latent slots collapse under the current 64M training regime
 
-Status: remediation implemented; medium-scale persistence gate still blocks
-another full 3000-step UDLF run.
+Status: remediation implemented; replacement 3000-step run is active and is
+the persistence/quality gate.
 
 Evidence:
 
@@ -45,9 +45,9 @@ Resolution plan:
 4. Completed local gate: full repaired model on real FineWeb-Edu remained
    finite and started at slot rank `14.93/16`, pair cosine `0.004`, injection
    finite-difference gain `1.015`, and loss `10.875`.
-5. Next: run a 300-500 step matched-token remote gate and reject the repair if
-   rank collapses toward 2, validation loss fails to improve, or full-BPTT
-   steps destabilize gradients.
+5. Active: job `5833830ea8854f4a9df8012dd224344a` runs the replacement
+   3000-step matched-data gate. Reject the repair if rank collapses toward 2,
+   validation loss fails to improve, or full-BPTT steps destabilize gradients.
 6. Completed scheduling correction: the first remote gate proved that using
    the full-BPTT-safe batch 12 for every truncated step reduced throughput to
    `829 tok/s`. Normal truncated steps now auto-batch independently; only full
