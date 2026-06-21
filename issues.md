@@ -48,8 +48,7 @@ show monotonic step-time degradation.
 
 ### UDLF latent slots collapse under the current 64M training regime
 
-Status: remediation implemented; replacement 3000-step run is active and is
-the persistence/quality gate.
+Status: resolved on 2026-06-21.
 
 Evidence:
 
@@ -75,9 +74,9 @@ Resolution plan:
 4. Completed local gate: full repaired model on real FineWeb-Edu remained
    finite and started at slot rank `14.93/16`, pair cosine `0.004`, injection
    finite-difference gain `1.015`, and loss `10.875`.
-5. Active: job `c9beaf40b31a4b909b05c353743b45c9` runs the residency-fixed
-   3000-step matched-data gate. Reject the repair if rank collapses toward 2,
-   validation loss fails to improve, or full-BPTT steps destabilize gradients.
+5. Completed: job `c9beaf40b31a4b909b05c353743b45c9` finished all 3000
+   steps with final slot rank `11.34/16`, fixed-sample loss `4.8582`, and no
+   full-BPTT instability.
 6. Completed scheduling correction: the first remote gate proved that using
    the full-BPTT-safe batch 12 for every truncated step reduced throughput to
    `829 tok/s`. Normal truncated steps now auto-batch independently; only full
@@ -94,6 +93,33 @@ Resolution plan:
 Exit criteria: a medium-scale run retains at least eight effective slot
 directions, keeps mean pair cosine below 0.8, and improves fixed-sample
 validation loss over the failed checkpoint trajectory at matched tokens.
+
+### Repaired UDLF remains behind Mamba on language-model quality and throughput
+
+Status: open research blocker.
+
+Evidence:
+
+- On the same 128 validation sequences, repaired UDLF loss is `4.8582` versus
+  Mamba `4.3899`; the gap is `0.4683` despite UDLF seeing more training tokens.
+- The repair improved UDLF by `0.2814` over the old fixed-sample loss `5.1396`,
+  so slot collapse explained part, but not all, of the quality deficit.
+- Sustained UDLF throughput is about `2302 tok/s` versus Mamba `44,718 tok/s`.
+
+Resolution plan:
+
+1. Run checkpoint-level injection/prior/readout and state-carry ablations on the
+   repaired model using the fixed 128-sample set.
+2. Measure loss by token position and horizon bucket to separate insufficient
+   long-context credit from a local modeling-capacity deficit.
+3. Quantify gradient clipping frequency and direction changes on full512 steps.
+4. Profile the remaining per-token Python/solver path before changing model
+   semantics; any optimization must preserve fixed-sample logits within stated
+   numerical tolerance.
+
+Exit criteria: attribute the remaining quality gap to a specific component or
+training mechanism and demonstrate an improvement on the same fixed sample
+without reintroducing slot collapse or invalidating the Mamba comparison.
 
 ### Workspace agent can load a stale custom-scan binary
 

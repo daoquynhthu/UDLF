@@ -610,3 +610,16 @@ than 11 hours.
    the most expensive truncated horizon one third of all optimizer steps.
 7. Use memory-model prediction to jump auto-batch probes toward the safe cap,
    then binary search only the failed bracket.
+
+## Post-Repair Attribution
+
+The repaired 64M run is complete. It resolved slot collapse and improved the
+same-sample loss from `5.1396` to `4.8582`, but Mamba remains better at
+`4.3899`. The next phase is attribution, not another blind full run.
+
+1. Re-run component and state-carry ablations on the repaired checkpoint.
+2. Report loss by token position and configured horizon bucket.
+3. Audit full512 gradient clipping separately from truncated steps.
+4. Profile solver/readout execution and identify semantics-preserving fusion or
+   vectorization opportunities.
+5. Require fixed-sample improvement before scheduling another 3000-step run.

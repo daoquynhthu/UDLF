@@ -1,4 +1,9 @@
-param([string]$Label = "fixed-sample")
+param(
+    [string]$Label = "fixed-sample",
+    [string]$UdlfRun = "udlf_fineweb_edu_64m_3000_solver2_contended",
+    [string]$MambaRun = "mamba_fineweb_edu_64m_custom_fused_3000",
+    [string]$OutputName = "fixed_sample_udlf_mamba_128.json"
+)
 
 $ErrorActionPreference = "Stop"
 $python = "L:\NAIME_REMOTE\envs\.venv312\Scripts\python.exe"
@@ -14,8 +19,8 @@ cmd /s /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 >nul && set" | ForEach-Object 
 }
 $env:Path = "L:\NAIME_REMOTE\envs\.venv312\Scripts;$env:Path"
 & $python scripts\evaluate_udlf_mamba_fixed_sample.py `
-    --udlf "L:\UDLF_REMOTE\runs\udlf_fineweb_edu_64m_3000_solver2_contended\latest.pt" `
-    --mamba "L:\UDLF_REMOTE\runs\mamba_fineweb_edu_64m_custom_fused_3000\latest.pt" `
+    --udlf "L:\UDLF_REMOTE\runs\$UdlfRun\latest.pt" `
+    --mamba "L:\UDLF_REMOTE\runs\$MambaRun\latest.pt" `
     --data "L:\NAIME_REMOTE\datasets\fineweb_edu_1b_ctx1024" `
-    --output "L:\UDLF_REMOTE\runs\fixed_sample_udlf_mamba_128.json"
+    --output "L:\UDLF_REMOTE\runs\$OutputName"
 if ($LASTEXITCODE -ne 0) { throw "fixed-sample evaluation failed with exit code $LASTEXITCODE" }

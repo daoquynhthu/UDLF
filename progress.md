@@ -559,3 +559,13 @@ This file records concise action summaries only. Detailed planning belongs in
   `udlf_fineweb_edu_64m_residency_fixed_3000`. At step 4 it reported finite
   loss `10.754`, grad norm `3.103`, slot rank `14.94`, and current reserved
   memory `15.32 GiB`; heartbeat showed step 5 running.
+- Completed job `c9beaf40b31a4b909b05c353743b45c9` at step 3000 with no
+  NaN/Inf or stderr. Final eval loss/PPL were `4.8266`/`124.79`, final slot
+  rank was `11.34/16`, and peak reserved memory stayed `15.47 GiB` below the
+  `21.84 GiB` cap. All 93 full512 steps completed; their mean duration was
+  `60.89` seconds and maximum grad norm was `2.64`.
+- On the same 128 validation sequences, repaired UDLF reached loss `4.8582`
+  (PPL `128.79`) versus old UDLF `5.1396` and Mamba `4.3899`. The repair
+  recovered `0.2814` loss and reduced the UDLF-Mamba gap from `0.7497` to
+  `0.4683`, but did not close it. Sustained cumulative throughput was
+  `2301.5 tok/s`; Mamba remains about 19x faster.
