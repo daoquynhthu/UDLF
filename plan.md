@@ -623,3 +623,10 @@ same-sample loss from `5.1396` to `4.8582`, but Mamba remains better at
 4. Profile solver/readout execution and identify semantics-preserving fusion or
    vectorization opportunities.
 5. Require fixed-sample improvement before scheduling another 3000-step run.
+
+Measured attribution is recorded in `doc/udlf_systemic_gap_attribution.md`.
+The leading quality hypotheses are horizon-dependent gradient distortion and
+insufficient independently parameterized transformation depth. The leading
+performance cause is the serial Python/solver execution path. Matched profiling
+measured a `39.6x` operator-call ratio and `56,962` UDLF CUDA launches in one
+batch-2, length-128 training step.

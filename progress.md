@@ -569,3 +569,18 @@ This file records concise action summaries only. Detailed planning belongs in
   recovered `0.2814` loss and reduced the UDLF-Mamba gap from `0.7497` to
   `0.4683`, but did not close it. Sustained cumulative throughput was
   `2301.5 tok/s`; Mamba remains about 19x faster.
+- Completed systemic-gap attribution. The UDLF-Mamba loss gap is nearly flat
+  (`0.42-0.49`) across all 64-token position bins, rejecting primarily
+  long-context decay. Mean-slot, centered-slot, shuffled-slot, and no-identity
+  readout interventions worsen loss by `2.03`, `1.55`, `3.68`, and `1.19`,
+  proving the repaired slot structure is functional. Long-horizon gradients
+  exceed the clip threshold on `84-97%` of steps versus `1.9%` for Mamba.
+- Corrected tied-embedding parameter accounting: repaired UDLF has `38.29M`
+  non-vocabulary parameters, not `12.56M`; core undercapacity by raw parameter
+  count is therefore rejected. Added reusable attribution tooling and tests.
+- Profiled matched batch-2, length-128 forward/backward steps. UDLF issued
+  `417,059` operator calls and `56,962` CUDA launches versus Mamba `10,538`
+  operator calls; profiler wall time was `8.874s` versus `0.194s`. The
+  performance deficit is graph fragmentation across the whole recurrent
+  token/solver cell, not one slow matrix multiplication. Full suite passes
+  `43` tests.

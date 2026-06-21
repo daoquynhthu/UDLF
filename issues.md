@@ -108,14 +108,18 @@ Evidence:
 
 Resolution plan:
 
-1. Run checkpoint-level injection/prior/readout and state-carry ablations on the
-   repaired model using the fixed 128-sample set.
-2. Measure loss by token position and horizon bucket to separate insufficient
-   long-context credit from a local modeling-capacity deficit.
-3. Quantify gradient clipping frequency and direction changes on full512 steps.
-4. Profile the remaining per-token Python/solver path before changing model
-   semantics; any optimization must preserve fixed-sample logits within stated
-   numerical tolerance.
+1. Completed: checkpoint-level injection/prior/readout and state-carry
+   ablations show that both components and slot specialization are functional.
+2. Completed: position bins show a nearly flat `0.42-0.49` gap, identifying a
+   local modeling deficit rather than primarily late-context decay.
+3. Completed: gradient clipping affects 51% of horizon-64 steps and 84-97% of
+   longer-horizon steps, versus 1.9% for Mamba.
+4. Completed: matched profiling measured `417,059` UDLF operator calls versus
+   `10,538` for Mamba and `56,962` UDLF CUDA launches.
+5. Test horizon-aware clipping and independently parameterized latent depth at
+   matched token and parameter budgets.
+6. Build a fused recurrent token/solver cell; require forward and gradient
+   parity before performance claims.
 
 Exit criteria: attribute the remaining quality gap to a specific component or
 training mechanism and demonstrate an improvement on the same fixed sample

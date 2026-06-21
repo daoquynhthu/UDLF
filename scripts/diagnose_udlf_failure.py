@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from datasets import load_from_disk
 
 from udlf.model import UDLFStageAModel
+from udlf.attribution import udlf_parameter_breakdown
 from udlf.training.checkpoint import normalize_state_dict_for_model
 from udlf.training.config import train_config_from_dict
 
@@ -95,15 +96,7 @@ def main() -> int:
     rows = [dataset[index][config.data_column][: config.seq_len + 1] for index in range(args.batch_size)]
     batch = torch.tensor(rows, dtype=torch.long, device="cuda")
 
-    groups = {
-        "embedding": sum(p.numel() for p in model.embedding.parameters()),
-        "output": model.output_weight.numel(),
-        "initial_state": model.initial_state.numel(),
-        "inject": sum(p.numel() for p in model.inject.parameters()),
-        "prior": sum(p.numel() for p in model.prior.parameters()),
-        "readout": sum(p.numel() for p in model.readout.parameters()),
-    }
-    total = sum(p.numel() for p in model.parameters())
+    groups = udlf_parameter_breakdown(model)
 
     stochastic_losses = []
     stochastic_state = None
@@ -123,9 +116,9 @@ def main() -> int:
     stochastic_se = torch.tensor(stochastic_losses).std(unbiased=True).item() / math.sqrt(len(stochastic_losses))
     report = {
         "checkpoint_step": int(checkpoint.get("step", 0)),
-        "parameter_total": total,
+        "parameter_total": groups["total"],
         "parameter_groups": groups,
-        "core_without_vocab_matrices": total - groups["embedding"] - groups["output"],
+        "core_without_vocab_matrices": groups["core_without_vocab_matrices"],
         "stochastic_loss_mean": stochastic_mean,
         "stochastic_loss_se": stochastic_se,
         "ode_loss": ode_loss,
