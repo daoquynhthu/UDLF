@@ -69,19 +69,19 @@ Resolution plan:
    states, and per-step slot cosine/centered-RMS/participation-rank metrics.
 2. Completed: tie the 50,257-token vocabulary matrix and increase latent width
    to 792, producing a 64,025,937-parameter model.
-3. Completed: introduce randomized 64-256 credit horizons with periodic
-   full-512 BPTT every 32 optimizer steps. Auto-batch now probes the full-BPTT
-   path whenever this schedule is enabled.
+3. Completed: use weighted fixed 64/128/256 credit buckets with periodic
+   full-512 BPTT every 32 optimizer steps. Each shape has its own safe
+   micro-batch and compensating accumulation.
 4. Completed local gate: full repaired model on real FineWeb-Edu remained
    finite and started at slot rank `14.93/16`, pair cosine `0.004`, injection
    finite-difference gain `1.015`, and loss `10.875`.
-5. Active: job `5833830ea8854f4a9df8012dd224344a` runs the replacement
+5. Active: job `c9beaf40b31a4b909b05c353743b45c9` runs the residency-fixed
    3000-step matched-data gate. Reject the repair if rank collapses toward 2,
    validation loss fails to improve, or full-BPTT steps destabilize gradients.
 6. Completed scheduling correction: the first remote gate proved that using
    the full-BPTT-safe batch 12 for every truncated step reduced throughput to
    `829 tok/s`. Normal truncated steps now auto-batch independently; only full
-   steps use batch 12 with compensating accumulation.
+   steps use a separately validated small batch with compensating accumulation.
 7. Completed horizon-aware correction: a second gate showed that batch 64 was
    safe at horizon 64 but saturated 24 GiB on a longer random horizon. Batch
    now scales inversely with horizon and accumulation scales up, keeping the

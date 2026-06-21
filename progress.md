@@ -552,3 +552,10 @@ This file records concise action summaries only. Detailed planning belongs in
   full steps completed in about 60 seconds, and no shape showed progressive
   slowdown. Added 0.6/0.3/0.1 bucket weights and prediction-first auto-batch
   search. Test suite: `39 passed`.
+- Verified prediction-first auto-batch remotely: probes dropped from roughly
+  17 candidates to batch 4, 8, and 64, selecting 64 at a `14.63 GiB` peak
+  under a `21.33 GiB` cap. Launched the new formal 3000-step run as job
+  `c9beaf40b31a4b909b05c353743b45c9` in
+  `udlf_fineweb_edu_64m_residency_fixed_3000`. At step 4 it reported finite
+  loss `10.754`, grad norm `3.103`, slot rank `14.94`, and current reserved
+  memory `15.32 GiB`; heartbeat showed step 5 running.
