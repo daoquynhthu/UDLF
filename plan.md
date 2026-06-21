@@ -605,3 +605,8 @@ than 11 hours.
 5. Validate 64, 128, 256, and full-512 paths sequentially in one long-lived
    remote process. Require bounded VRAM, finite gradients, and no progressive
    throughput collapse before another formal launch.
+6. Sample the stable buckets with weights 0.6/0.3/0.1 for 64/128/256 and retain
+   periodic full-512 steps. This preserves long-credit coverage without making
+   the most expensive truncated horizon one third of all optimizer steps.
+7. Use memory-model prediction to jump auto-batch probes toward the safe cap,
+   then binary search only the failed bracket.

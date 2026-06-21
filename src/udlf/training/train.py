@@ -523,17 +523,27 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
                     selection_budget_bytes / 1024**3,
                 )
 
-    if failed_upper is not None:
-        high = failed_upper - 1
-    else:
-        predicted_safe_cap()
-        high = upper
+    while failed_upper is None and best > 0 and best < upper:
+        candidate = predicted_safe_cap()
+        if candidate <= best:
+            candidate = min(upper, max(best + 1, best * 2))
+        ok, peak = try_batch(candidate)
+        if ok and peak <= selection_budget_bytes:
+            best = candidate
+        else:
+            failed_upper = candidate
+            if ok:
+                logger.info(
+                    "auto-batch candidate batch=%d peak=%.2fGiB exceeds select_budget=%.2fGiB",
+                    candidate,
+                    peak / 1024**3,
+                    selection_budget_bytes / 1024**3,
+                )
+
+    high = failed_upper - 1 if failed_upper is not None else upper
     low = best + 1
     while low <= high:
-        probe_high = high
-        if best > 0:
-            probe_high = min(probe_high, best + train_config.auto_batch_max_probe_increment)
-        mid = (low + probe_high) // 2
+        mid = (low + high) // 2
         ok, peak = try_batch(mid)
         if ok and peak <= selection_budget_bytes:
             best = mid
@@ -653,13 +663,17 @@ def _choose_segment_len(
     if config.full_bptt_every > 0 and step % config.full_bptt_every == 0:
         return 0
     if config.segment_len_choices:
-        index = torch.randint(
-            0,
-            len(config.segment_len_choices),
-            (1,),
-            generator=generator,
-            device=device,
-        )
+        if config.segment_len_weights:
+            weights = torch.tensor(config.segment_len_weights, device=device)
+            index = torch.multinomial(weights, 1, generator=generator)
+        else:
+            index = torch.randint(
+                0,
+                len(config.segment_len_choices),
+                (1,),
+                generator=generator,
+                device=device,
+            )
         return config.segment_len_choices[int(index.item())]
     if config.segment_len_min > 0 and config.segment_len_max > 0:
         value = torch.randint(

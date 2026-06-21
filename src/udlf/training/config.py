@@ -53,6 +53,7 @@ class UDLFTrainConfig:
     segment_len_min: int = 0
     segment_len_max: int = 0
     segment_len_choices: list[int] = field(default_factory=list)
+    segment_len_weights: list[float] = field(default_factory=list)
     full_bptt_every: int = 0
     full_bptt_batch_size: int = 0
     release_cuda_cache_on_shape_change: bool = False
@@ -189,7 +190,17 @@ class UDLFTrainConfig:
             raise ValueError("segment_len_min and segment_len_max must be >= 0")
         if self.segment_len_min and self.segment_len_max and self.segment_len_min > self.segment_len_max:
             raise ValueError("segment_len_min must be <= segment_len_max")
-        self.segment_len_choices = sorted(set(int(value) for value in self.segment_len_choices))
+        choices = [int(value) for value in self.segment_len_choices]
+        if len(set(choices)) != len(choices):
+            raise ValueError("segment_len_choices must not contain duplicates")
+        if self.segment_len_weights and len(self.segment_len_weights) != len(choices):
+            raise ValueError("segment_len_weights must match segment_len_choices")
+        weights = [float(value) for value in self.segment_len_weights]
+        if any(value <= 0 for value in weights):
+            raise ValueError("segment_len_weights must be positive")
+        pairs = sorted(zip(choices, weights or [1.0] * len(choices)))
+        self.segment_len_choices = [choice for choice, _ in pairs]
+        self.segment_len_weights = [weight for _, weight in pairs] if weights else []
         if any(value <= 0 or value >= self.seq_len for value in self.segment_len_choices):
             raise ValueError("segment_len_choices must contain values between 1 and seq_len - 1")
         if self.full_bptt_every < 0:

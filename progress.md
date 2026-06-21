@@ -546,3 +546,9 @@ This file records concise action summaries only. Detailed planning belongs in
   current/peak memory metrics, step timing, and heartbeat state. A local RTX
   5060 long-lived gate switched 32/64/full shapes under a 6.34 GiB cap while
   reserved memory stayed between 1.34 and 1.65 GiB. Test suite: `38 passed`.
+- Completed remote job `06b4c0679add4ef8bd6a76c14663244b` across 128, 64,
+  64, full512, 128, 256, 256, and full512 horizons. The allocator cap was
+  `21.84 GiB`; current/peak reserved memory remained `14.18-15.47 GiB`, both
+  full steps completed in about 60 seconds, and no shape showed progressive
+  slowdown. Added 0.6/0.3/0.1 bucket weights and prediction-first auto-batch
+  search. Test suite: `39 passed`.

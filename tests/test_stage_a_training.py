@@ -258,7 +258,8 @@ def test_segment_schedule_uses_random_horizons_and_periodic_full_bptt():
             "segment_len": 64,
             "segment_len_min": 64,
             "segment_len_max": 256,
-            "segment_len_choices": [256, 64, 128, 128],
+            "segment_len_choices": [256, 64, 128],
+            "segment_len_weights": [0.1, 0.6, 0.3],
             "full_bptt_every": 8,
         }
     )
@@ -268,6 +269,7 @@ def test_segment_schedule_uses_random_horizons_and_periodic_full_bptt():
     full = _choose_segment_len(config, generator, torch.device("cpu"), step=8)
 
     assert config.segment_len_choices == [64, 128, 256]
+    assert config.segment_len_weights == [0.6, 0.3, 0.1]
     assert sampled in config.segment_len_choices
     assert full == 0
 
@@ -323,6 +325,7 @@ def test_random_horizon_scales_batch_to_constant_activation_budget():
             "segment_len_min": 64,
             "segment_len_max": 256,
             "segment_len_choices": [64, 128, 256],
+            "segment_len_weights": [0.6, 0.3, 0.1],
             "full_bptt_every": 32,
             "full_bptt_batch_size": 12,
         }
@@ -341,6 +344,17 @@ def test_segment_choices_reject_invalid_sequence_horizons():
         assert "segment_len_choices" in str(exc)
     else:
         raise AssertionError("expected horizon equal to seq_len to be rejected")
+
+
+def test_segment_weights_must_match_choices():
+    try:
+        train_config_from_dict(
+            {"seq_len": 512, "segment_len_choices": [64, 128], "segment_len_weights": [1.0]}
+        )
+    except ValueError as exc:
+        assert "segment_len_weights" in str(exc)
+    else:
+        raise AssertionError("expected mismatched horizon weights to be rejected")
 
 
 def test_train_config_passes_mamba_official_alignment_parameters():

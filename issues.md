@@ -18,7 +18,7 @@ If an issue does not need planned resolution, it does not belong in this file.
 
 ### Windows WDDM paged variable-shape CUDA allocations into system RAM
 
-Status: local remediation passed; remote long-lived allocator gate pending.
+Status: resolved on 2026-06-21.
 
 Evidence:
 
@@ -38,8 +38,9 @@ Resolution plan:
 3. Completed: release unused cache on shape changes and reset step peak stats.
 4. Completed: add current/peak VRAM, step duration/throughput, and heartbeat
    instrumentation.
-5. Next: run all horizon buckets plus full 512 BPTT in one remote process and
-   reject any progressive reserved-memory or throughput growth.
+5. Completed: one remote process ran 128, 64, 64, full512, 128, 256, 256,
+   full512. Reserved VRAM stayed between `14.18` and `15.47 GiB` under a
+   `21.84 GiB` cap, and the second full step completed without memory growth.
 
 Exit criteria: every shape completes with finite gradients, current and peak
 reserved VRAM remain below the allocator cap, and repeated bucket cycles do not
