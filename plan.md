@@ -584,3 +584,24 @@ Implementation status: complete locally; remote persistence validation pending.
 6. Launch a replacement 3000-step run only if the medium gate retains slot rank
    >= 8, pair cosine < 0.8, finite gradients, and a credible loss trajectory.
    The failed historical run remains the control and must not be overwritten.
+
+## CUDA Residency Repair
+
+The first repaired 3000-step launch was cancelled at step 41 after Windows
+WDDM paged an overcommitted CUDA allocator into 64 GB system RAM. System RAM is
+not a substitute for the RTX 4090's 24 GB VRAM; the process remained at 100%
+reported utilization but only about 125 W and made no step progress for more
+than 11 hours.
+
+1. Replace arbitrary integer horizons with a small configured bucket set so
+   CUDA sees stable activation shapes.
+2. Cap the PyTorch process allocator to 95% of VRAM available at process start,
+   expressed as an absolute-free-to-total fraction. Fail with CUDA OOM instead
+   of allowing WDDM system-memory paging.
+3. Release cached blocks when the `(horizon, micro-batch)` shape changes and
+   reset peak statistics per optimizer step.
+4. Record current allocated/reserved memory separately from per-step peaks,
+   plus step duration, step throughput, and an on-disk heartbeat.
+5. Validate 64, 128, 256, and full-512 paths sequentially in one long-lived
+   remote process. Require bounded VRAM, finite gradients, and no progressive
+   throughput collapse before another formal launch.

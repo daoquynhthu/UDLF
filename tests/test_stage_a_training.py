@@ -254,9 +254,11 @@ def test_train_config_accepts_parameters_and_steps_alias():
 def test_segment_schedule_uses_random_horizons_and_periodic_full_bptt():
     config = train_config_from_dict(
         {
+            "seq_len": 512,
             "segment_len": 64,
             "segment_len_min": 64,
             "segment_len_max": 256,
+            "segment_len_choices": [256, 64, 128, 128],
             "full_bptt_every": 8,
         }
     )
@@ -265,7 +267,8 @@ def test_segment_schedule_uses_random_horizons_and_periodic_full_bptt():
     sampled = _choose_segment_len(config, generator, torch.device("cpu"), step=1)
     full = _choose_segment_len(config, generator, torch.device("cpu"), step=8)
 
-    assert 64 <= sampled <= 256
+    assert config.segment_len_choices == [64, 128, 256]
+    assert sampled in config.segment_len_choices
     assert full == 0
 
 
@@ -303,16 +306,23 @@ def test_full_bptt_step_uses_dedicated_micro_batch(tmp_path):
     assert row["train_step_batch_size"] == 1.0
     assert row["train_step_grad_accum"] == 4.0
     assert row["train_step_effective_batch_size"] == 4.0
+    assert row["step_seconds"] > 0
+    assert row["step_tokens_per_second"] > 0
+    heartbeat = json.loads((run_dir / "heartbeat.json").read_text(encoding="utf-8"))
+    assert heartbeat["status"] == "completed"
+    assert heartbeat["step"] == 1
 
 
 def test_random_horizon_scales_batch_to_constant_activation_budget():
     config = train_config_from_dict(
         {
+            "seq_len": 512,
             "batch_size": 64,
             "grad_accum_steps": 1,
             "segment_len": 64,
             "segment_len_min": 64,
             "segment_len_max": 256,
+            "segment_len_choices": [64, 128, 256],
             "full_bptt_every": 32,
             "full_bptt_batch_size": 12,
         }
@@ -322,6 +332,15 @@ def test_random_horizon_scales_batch_to_constant_activation_budget():
     assert _step_batch_schedule(config, 128) == (32, 2)
     assert _step_batch_schedule(config, 256) == (16, 4)
     assert _step_batch_schedule(config, 0) == (12, 6)
+
+
+def test_segment_choices_reject_invalid_sequence_horizons():
+    try:
+        train_config_from_dict({"seq_len": 128, "segment_len_choices": [64, 128]})
+    except ValueError as exc:
+        assert "segment_len_choices" in str(exc)
+    else:
+        raise AssertionError("expected horizon equal to seq_len to be rejected")
 
 
 def test_train_config_passes_mamba_official_alignment_parameters():

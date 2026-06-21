@@ -136,6 +136,24 @@ def _clear_cuda(device: torch.device) -> None:
             torch.cuda.reset_peak_memory_stats(device)
 
 
+def _configure_cuda_memory_cap(config: UDLFTrainConfig, device: torch.device, logger) -> int:
+    if device.type != "cuda" or not config.enforce_cuda_memory_cap:
+        return 0
+    free_bytes, total_bytes = torch.cuda.mem_get_info(device)
+    cap_bytes = int(free_bytes * config.vram_fraction)
+    cap_fraction = min(1.0, cap_bytes / total_bytes)
+    device_index = device.index if device.index is not None else torch.cuda.current_device()
+    torch.cuda.set_per_process_memory_fraction(cap_fraction, device_index)
+    logger.info(
+        "CUDA allocator cap set available=%.2fGiB total=%.2fGiB cap=%.2fGiB fraction=%.4f",
+        free_bytes / 1024**3,
+        total_bytes / 1024**3,
+        cap_bytes / 1024**3,
+        cap_fraction,
+    )
+    return cap_bytes
+
+
 def _sample_training_batch(dataset, batch_size: int, device: torch.device) -> tuple[torch.Tensor, torch.Tensor | None]:
     batch = dataset.sample(batch_size, device=device)
     loss_mask = dataset.loss_mask(batch_size, device=device) if hasattr(dataset, "loss_mask") else None
@@ -634,6 +652,15 @@ def _choose_segment_len(
 ) -> int:
     if config.full_bptt_every > 0 and step % config.full_bptt_every == 0:
         return 0
+    if config.segment_len_choices:
+        index = torch.randint(
+            0,
+            len(config.segment_len_choices),
+            (1,),
+            generator=generator,
+            device=device,
+        )
+        return config.segment_len_choices[int(index.item())]
     if config.segment_len_min > 0 and config.segment_len_max > 0:
         value = torch.randint(
             config.segment_len_min,
@@ -651,7 +678,11 @@ def _step_batch_schedule(config: UDLFTrainConfig, segment_len: int) -> tuple[int
     if segment_len == 0 and config.full_bptt_batch_size > 0:
         batch_size = config.full_bptt_batch_size
     elif segment_len > 0:
-        base_horizon = config.segment_len_min or config.segment_len or segment_len
+        base_horizon = (
+            min(config.segment_len_choices)
+            if config.segment_len_choices
+            else config.segment_len_min or config.segment_len or segment_len
+        )
         batch_size = max(1, min(config.batch_size, config.batch_size * base_horizon // segment_len))
     else:
         batch_size = config.batch_size
@@ -892,11 +923,12 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
     run_dir.mkdir(parents=True, exist_ok=True)
     models_dir.mkdir(parents=True, exist_ok=True)
 
-    set_seed(train_config.seed)
     device = resolve_device(train_config.device)
     if device.type != "cuda" and not train_config.allow_cpu_training:
         raise RuntimeError("CPU training is disabled; set allow_cpu_training=true only for tests or tiny debugging")
     logger = setup_logger(run_dir, console_log_mode=train_config.console_log_mode)
+    cuda_cap_bytes = _configure_cuda_memory_cap(train_config, device, logger)
+    set_seed(train_config.seed)
     _probe_auto_batch_size(train_config, device, logger)
     if train_config.full_bptt_batch_size > train_config.batch_size:
         raise RuntimeError(
@@ -957,6 +989,8 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
     )
     start_time = time.time()
     cumulative_tokens = 0
+    previous_shape: tuple[int, int] | None = None
+    heartbeat_path = run_dir / "heartbeat.json"
     step = start_step
     try:
         for step in range(start_step + 1, train_config.max_steps + 1):
@@ -978,11 +1012,37 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
             )
             full_bptt = segment_len == 0
             step_batch_size, step_grad_accum = _step_batch_schedule(train_config, segment_len)
+            step_shape = (segment_len, step_batch_size)
+            cache_released = False
+            if (
+                device.type == "cuda"
+                and train_config.release_cuda_cache_on_shape_change
+                and previous_shape is not None
+                and step_shape != previous_shape
+            ):
+                torch.cuda.empty_cache()
+                cache_released = True
+            previous_shape = step_shape
+            if device.type == "cuda":
+                torch.cuda.reset_peak_memory_stats(device)
+            step_start_time = time.time()
+            write_json(
+                heartbeat_path,
+                {
+                    "status": "running",
+                    "step": step,
+                    "segment_len": segment_len,
+                    "batch_size": step_batch_size,
+                    "grad_accum_steps": step_grad_accum,
+                    "started_at_unix": step_start_time,
+                },
+            )
             architecture_metrics["train_segment_len"] = float(segment_len)
             architecture_metrics["train_full_bptt"] = float(full_bptt)
             architecture_metrics["train_step_batch_size"] = float(step_batch_size)
             architecture_metrics["train_step_grad_accum"] = float(step_grad_accum)
             architecture_metrics["train_step_effective_batch_size"] = float(step_batch_size * step_grad_accum)
+            architecture_metrics["train_cuda_cache_released"] = float(cache_released)
             for accum_index in range(step_grad_accum):
                 batch, loss_mask = _sample_training_batch(train_dataset, step_batch_size, device)
                 batch_tokens += step_batch_size * (batch.shape[1] - 1)
@@ -1051,6 +1111,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 scheduler.step()
 
             elapsed = max(time.time() - start_time, 1e-9)
+            step_elapsed = max(time.time() - step_start_time, 1e-9)
             cumulative_tokens += batch_tokens
             current_loss = float(loss_for_metrics.detach().cpu())
             metrics: dict[str, Any] = {
@@ -1058,6 +1119,8 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 "loss_lm": current_loss,
                 "ppl_lm": float(math.exp(min(current_loss, 20.0))),
                 "tokens_per_second": round(cumulative_tokens / elapsed, 3),
+                "step_seconds": round(step_elapsed, 6),
+                "step_tokens_per_second": round(batch_tokens / step_elapsed, 3),
                 "grad_norm": grad_norm,
                 "learning_rate": float(optimizer.param_groups[0]["lr"]),
                 "architecture": train_config.architecture,
@@ -1091,8 +1154,11 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
             if dynamics_diagnostics is not None:
                 metrics.update(_dynamics_summary(dynamics_diagnostics))
             if device.type == "cuda":
-                metrics["cuda_memory_allocated_mb"] = round(torch.cuda.max_memory_allocated(device) / (1024 * 1024), 3)
-                metrics["cuda_memory_reserved_mb"] = round(torch.cuda.max_memory_reserved(device) / (1024 * 1024), 3)
+                metrics["cuda_memory_allocated_mb"] = round(torch.cuda.memory_allocated(device) / (1024 * 1024), 3)
+                metrics["cuda_memory_reserved_mb"] = round(torch.cuda.memory_reserved(device) / (1024 * 1024), 3)
+                metrics["cuda_step_peak_allocated_mb"] = round(torch.cuda.max_memory_allocated(device) / (1024 * 1024), 3)
+                metrics["cuda_step_peak_reserved_mb"] = round(torch.cuda.max_memory_reserved(device) / (1024 * 1024), 3)
+                metrics["cuda_allocator_cap_mb"] = round(cuda_cap_bytes / (1024 * 1024), 3)
 
             save_best = False
             if train_config.eval_every > 0 and step % train_config.eval_every == 0:
@@ -1133,6 +1199,18 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                     save_best = True
 
             metric_logger.write(metrics, force_sync=save_best)
+            write_json(
+                heartbeat_path,
+                {
+                    "status": "completed",
+                    "step": step,
+                    "segment_len": segment_len,
+                    "batch_size": step_batch_size,
+                    "grad_accum_steps": step_grad_accum,
+                    "step_seconds": metrics["step_seconds"],
+                    "completed_at_unix": time.time(),
+                },
+            )
             last_metrics = metrics
             if step % train_config.log_every == 0:
                 logger.info(

@@ -16,6 +16,35 @@ If an issue does not need planned resolution, it does not belong in this file.
 
 ## Active
 
+### Windows WDDM paged variable-shape CUDA allocations into system RAM
+
+Status: local remediation passed; remote long-lived allocator gate pending.
+
+Evidence:
+
+- The repaired formal run completed step 40, then spent more than 11 hours in
+  step 41 at horizon 238.
+- GPU utilization reported 100%, but board power stayed near 125 W instead of
+  normal compute power and throughput had fallen from `3887` to `343 tok/s`.
+- PyTorch recorded a historical reserved peak of `30,436 MiB` on a 24 GB RTX
+  4090. WDDM used the server's 64 GB system RAM as paged backing memory instead
+  of producing an immediate CUDA OOM.
+
+Resolution plan:
+
+1. Completed: replace arbitrary 64-256 horizons with fixed 64/128/256 buckets.
+2. Completed: enforce a per-process allocator cap equal to 95% of VRAM free at
+   process start.
+3. Completed: release unused cache on shape changes and reset step peak stats.
+4. Completed: add current/peak VRAM, step duration/throughput, and heartbeat
+   instrumentation.
+5. Next: run all horizon buckets plus full 512 BPTT in one remote process and
+   reject any progressive reserved-memory or throughput growth.
+
+Exit criteria: every shape completes with finite gradients, current and peak
+reserved VRAM remain below the allocator cap, and repeated bucket cycles do not
+show monotonic step-time degradation.
+
 ### UDLF latent slots collapse under the current 64M training regime
 
 Status: remediation implemented; replacement 3000-step run is active and is

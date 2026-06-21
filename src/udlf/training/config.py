@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
@@ -52,8 +52,11 @@ class UDLFTrainConfig:
     segment_len: int = 0
     segment_len_min: int = 0
     segment_len_max: int = 0
+    segment_len_choices: list[int] = field(default_factory=list)
     full_bptt_every: int = 0
     full_bptt_batch_size: int = 0
+    release_cuda_cache_on_shape_change: bool = False
+    enforce_cuda_memory_cap: bool = True
     detach_state_between_segments: bool = True
     prior_path_samples: int = 1
     prior_state_selection: str = "first"
@@ -186,6 +189,9 @@ class UDLFTrainConfig:
             raise ValueError("segment_len_min and segment_len_max must be >= 0")
         if self.segment_len_min and self.segment_len_max and self.segment_len_min > self.segment_len_max:
             raise ValueError("segment_len_min must be <= segment_len_max")
+        self.segment_len_choices = sorted(set(int(value) for value in self.segment_len_choices))
+        if any(value <= 0 or value >= self.seq_len for value in self.segment_len_choices):
+            raise ValueError("segment_len_choices must contain values between 1 and seq_len - 1")
         if self.full_bptt_every < 0:
             raise ValueError("full_bptt_every must be >= 0")
         if self.full_bptt_batch_size < 0:

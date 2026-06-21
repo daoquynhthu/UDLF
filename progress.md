@@ -536,3 +536,13 @@ This file records concise action summaries only. Detailed planning belongs in
   `udlf_fineweb_edu_64m_slot_repair_3000`. Auto-batch selected normal batch 64
   at a 14.63 GiB peak; periodic full-BPTT steps use batch 8 with accumulation
   8. The historical failed run remains untouched.
+- Cancelled job `5833830ea8854f4a9df8012dd224344a` at step 41 after it made no
+  progress for more than 11 hours. Through step 40 the architecture remained
+  finite and non-collapsed (loss `8.149`, grad norm `1.904`, slot rank
+  `14.88/16`), but arbitrary horizon shapes drove the WDDM allocator to a
+  `30,436 MiB` historical reserved peak and system-memory paging.
+- Implemented CUDA residency controls: fixed horizon buckets, a hard allocator
+  cap based on 95% of free VRAM, cache release on shape transitions, per-step
+  current/peak memory metrics, step timing, and heartbeat state. A local RTX
+  5060 long-lived gate switched 32/64/full shapes under a 6.34 GiB cap while
+  reserved memory stayed between 1.34 and 1.65 GiB. Test suite: `38 passed`.
