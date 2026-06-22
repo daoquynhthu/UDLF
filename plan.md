@@ -685,3 +685,11 @@ Next gate:
   matched steps before extending to 3000;
 - use `full_bptt_batch_size=4` while unrelated CUDA jobs leave only about
   `11.7GB` actually available.
+
+Active run:
+
+- workspace job: `fef9dd1a32cf472680eefb6dd1412755`;
+- run directory: `L:\UDLF_REMOTE\runs\udlf_hierarchical_64m_depth4_1000_gate`;
+- selected schedule: batch 24, accumulation 3, effective batch 72;
+- allocator cap: `11.09GB` from `11.67GB` system-wide available VRAM;
+- first decision checkpoint: step 250 fixed validation.

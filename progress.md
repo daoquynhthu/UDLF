@@ -601,3 +601,8 @@ This file records concise action summaries only. Detailed planning belongs in
   `nvidia-smi` showed `11.67GB`. The trainer now takes the smaller value,
   applied an `11.09GB` allocator cap, and safely selected batch 24 via bounded
   probes. Full test suite passes `51` tests.
+- Launched the hierarchical 64M 1000-step quality gate as workspace job
+  `fef9dd1a32cf472680eefb6dd1412755` in
+  `udlf_hierarchical_64m_depth4_1000_gate`. Under current shared-card pressure,
+  auto-batch safely selected 24 with accumulation 3 for an effective batch of
+  72 and began training under an `11.09GB` allocator cap.
