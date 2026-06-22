@@ -810,3 +810,8 @@ The first gate was cancelled at step 84 because its template used 100 warmup
 steps versus 200 in the control. This doubled early learning rate and made the
 trajectory non-comparable. The corrected matched gate uses 200 warmup steps;
 the invalid run remains preserved and is excluded from architecture evidence.
+
+A second launch was cancelled during auto-batch probing before training: more
+free VRAM allowed a candidate above 16, which would have changed effective
+batch from 64 to at least 84. The matched architecture gate now caps
+auto-batch at 16 so optimization batch is invariant to transient GPU capacity.

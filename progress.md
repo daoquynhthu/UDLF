@@ -644,3 +644,7 @@ This file records concise action summaries only. Detailed planning belongs in
   versus 200 in the control. Early apparent gains were confounded by twice the
   learning rate and the 60-83 window was already about `0.014-0.018` worse.
   Corrected the template to 200 warmup steps before restarting in a new run.
+- Cancelled the corrected relaunch during probing when increased free VRAM
+  would have selected batch 28 and changed effective batch to 84. Capped the
+  architecture gate at batch 16 so it always uses the control's effective
+  batch 64; this run produced no training steps and no evidence.
