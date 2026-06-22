@@ -223,6 +223,22 @@ identical to the repaired depth-one model at initialization. After six remote
 smoke steps, adapter output-weight cosine was `0.368` with difference norm
 `0.0194`, proving that the half-step corrections receive distinct updates.
 
+That adapter candidate was later rejected at step 64 because it induced early
+common-state collapse and worsened matched-step loss. A subsequent fidelity
+audit found a more direct defect in the original readout: v0.6 specifies a
+separate key projection `W_{r,h}` for every readout head, but the implementation
+shared one `d -> d` key projection across all eight heads. On the repaired
+depth-one checkpoint, readout attention pair cosine was `0.428` but the eight
+head outputs had effective rank only `2.24/8`, so the nominally large readout
+used few independent value mixtures.
+
+The head-specific-key candidate reallocates exactly `7d^2` weights from prior
+FF width (`4 -> 3`) into seven additional readout key projections. It has
+`64,024,353` parameters versus `64,025,937` for the control. Remote smoke
+covered 64/128/256/full-512 paths without slot collapse; six-step head output
+rank was `4.47/8`. This is implementation and geometry evidence only. A
+300-step matched training gate must still establish quality.
+
 ## Ranked Root Causes
 
 1. **Architectural depth and parameter organization.** Strong inference. A

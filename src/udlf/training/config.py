@@ -102,6 +102,7 @@ class UDLFTrainConfig:
     ff_multiplier: int = 2
     latent_heads: int = 4
     readout_heads: int = 2
+    readout_head_keys: bool = False
     prior_depth: int = 1
     solver_adapter_rank: int = 0
     solver_steps: int = 2
@@ -247,6 +248,7 @@ class UDLFTrainConfig:
             ff_multiplier=self.ff_multiplier,
             latent_heads=self.latent_heads,
             readout_heads=self.readout_heads,
+            readout_head_keys=self.readout_head_keys,
             prior_depth=self.prior_depth,
             solver_adapter_rank=self.solver_adapter_rank,
             solver_steps=self.solver_steps,

@@ -754,3 +754,46 @@ Current final-repair boundary:
 6. Reopen quality architecture work around local token representation without
    shrinking latent width or weakening slot separation.
 7. Start 3000 steps only after both quality and performance gates pass.
+
+### Local token-channel diagnosis
+
+Status: complete; head-specific readout repair in medium validation.
+
+The v0.6 equations and implementation agree on the main injection, shared
+interaction, dissipation, diffusion, and token-conditioned multi-query readout
+paths. The remaining conceptual risk is that current-token information has no
+value residual into the logits: it must be written into slots and survive
+dynamics, while the readout token embedding can only alter attention queries.
+
+Checkpoint counterfactuals on the same fixed validation rows:
+
+1. normal post-injection/post-dynamics state and correct readout condition;
+2. pre-injection state with the correct current-token readout condition;
+3. post-dynamics state with zero readout token condition;
+4. post-dynamics state with shuffled token condition;
+5. direct tied-embedding current-token head as a local-only control.
+
+The repair decision will distinguish insufficient token write, insufficient
+readout value bandwidth, and a genuinely weak local-only predictor.
+
+Measured result:
+
+- removing current-token state write/dynamics worsens loss by `+1.421`;
+- zeroing the readout token condition worsens loss by `+0.928`;
+- shuffling that condition worsens loss by `+1.612`;
+- the direct tied-token head has loss `10.69`.
+
+The token channel is functional. Injection relative jump is only `0.073` and
+injection-state cosine is `0.9976`, so state overwrite is not the leading
+problem.
+
+Confirmed fidelity defect and repair:
+
+- v0.6 requires head-specific readout key projections `W_{r,h}`;
+- the implementation shared one key projection across eight heads;
+- trained head outputs have participation rank `2.24/8`;
+- candidate uses eight independent key projections and reduces prior FF
+  multiplier from 4 to 3, preserving total parameters at `64.024M`;
+- local full-512 and remote all-horizon smoke passed without slot collapse;
+- 300-step quality gate is the next decision. Performance optimization remains
+  deferred and 3000 steps remain prohibited.

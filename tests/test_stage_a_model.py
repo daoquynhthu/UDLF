@@ -190,6 +190,40 @@ def test_hierarchical2_64m_candidate_is_parameter_matched():
     assert abs(parameter_count - 64_000_000) / 64_000_000 < 0.01
 
 
+def test_head_specific_readout_candidate_is_exactly_parameter_matched():
+    model = UDLFStageAModel(
+        UDLFModelConfig(
+            vocab_size=50257,
+            latent_slots=16,
+            latent_dim=792,
+            embed_dim=512,
+            ff_multiplier=3,
+            latent_heads=8,
+            readout_heads=8,
+            readout_head_keys=True,
+            solver_steps=2,
+            diffusion_mode="fixed",
+            fixed_sigma=0.01,
+            tie_embeddings=True,
+        )
+    )
+    parameter_count = sum(parameter.numel() for parameter in model.parameters())
+    assert parameter_count == 64_024_353
+    assert abs(parameter_count - 64_025_937) / 64_025_937 < 0.0001
+    assert model.readout.key.weight.shape == (8 * 792, 792)
+
+
+def test_head_specific_readout_keys_all_receive_gradients():
+    model = UDLFStageAModel(small_config(readout_head_keys=True))
+    output = model(torch.randint(0, model.config.vocab_size, (2, 6)))
+    output.loss.backward()
+    gradient = model.readout.key.weight.grad
+    assert gradient is not None
+    per_head = gradient.view(model.config.readout_heads, model.config.latent_dim, model.config.latent_dim)
+    assert torch.isfinite(per_head).all()
+    assert (per_head.flatten(start_dim=1).norm(dim=1) > 0).all()
+
+
 def test_solver_adapters_preserve_initial_function_and_receive_distinct_gradients():
     base_config = UDLFModelConfig(
         vocab_size=32,

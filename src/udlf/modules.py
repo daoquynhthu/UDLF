@@ -223,7 +223,8 @@ class LatentReadout(nn.Module):
         self.condition = nn.Linear(config.embed_dim + d, d)
         self.base_queries = nn.Parameter(torch.randn(config.readout_heads, d) / math.sqrt(d))
         self.query_delta = nn.Linear(d, config.readout_heads * d)
-        self.key = nn.Linear(d, d, bias=False)
+        key_output_dim = config.readout_heads * d if config.readout_head_keys else d
+        self.key = nn.Linear(d, key_output_dim, bias=False)
         self.merge = nn.Linear(config.readout_heads * d, d)
         self.norm = RMSNorm(d, config.rms_eps)
         self.to_embed = nn.Linear(d, config.embed_dim, bias=False)
@@ -248,7 +249,17 @@ class LatentReadout(nn.Module):
         query_delta = self.query_delta(cond).view(-1, self.config.readout_heads, self.config.latent_dim)
         queries = self.base_queries.unsqueeze(0) + query_delta
         keys = self.key(state if slot_identity is None else state + slot_identity)
-        scores = torch.einsum("bhd,bmd->bhm", queries, keys) / math.sqrt(self.config.latent_dim)
+        if self.config.readout_head_keys:
+            keys = keys.view(
+                state.shape[0],
+                state.shape[1],
+                self.config.readout_heads,
+                self.config.latent_dim,
+            )
+            scores = torch.einsum("bhd,bmhd->bhm", queries, keys)
+        else:
+            scores = torch.einsum("bhd,bmd->bhm", queries, keys)
+        scores = scores / math.sqrt(self.config.latent_dim)
         weights = torch.softmax(scores, dim=-1)
         heads = torch.einsum("bhm,bmd->bhd", weights, state)
         merged = self.merge(heads.flatten(start_dim=1))

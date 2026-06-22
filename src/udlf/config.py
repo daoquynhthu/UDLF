@@ -16,6 +16,7 @@ class UDLFModelConfig:
     ff_multiplier: int = 4
     latent_heads: int = 4
     readout_heads: int = 4
+    readout_head_keys: bool = False
     prior_depth: int = 1
     solver_adapter_rank: int = 0
     solver_steps: int = 4

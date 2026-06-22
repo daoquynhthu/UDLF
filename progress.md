@@ -628,3 +628,11 @@ This file records concise action summaries only. Detailed planning belongs in
   Current remote throughput is additionally contaminated by four Jupyter CUDA
   kernels and only `6.8GB` free VRAM, but the adapter regression is intrinsic
   and independently measured. The 3000-step launch remains blocked.
+- Completed local-token and readout diagnosis on the repaired checkpoint.
+  Current-token state writing and readout conditioning contribute `+1.421`
+  and `+0.928` loss when removed, while injection changes state by only 7.3
+  percent RMS. Found that implementation shared a readout key projection even
+  though v0.6 specifies one per head; trained eight-head output rank was only
+  `2.24`. Implemented an exactly parameter-matched head-specific-key candidate
+  by reallocating one FF expansion unit. Local full-512 and remote all-horizon
+  smoke passed; tests pass `56` cases.
