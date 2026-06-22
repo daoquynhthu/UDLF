@@ -720,3 +720,11 @@ Final repair candidate under test:
   before any 1000-step continuation;
 - no 3000-step experiment may start until this candidate passes the complete
   300/1000-step gate and fixed-sample comparison.
+
+Active adapter gate:
+
+- workspace job: `ac4141d6ea054a41bc13e37cde3f924f`;
+- run: `L:\UDLF_REMOTE\runs\udlf_solver_adapter_64m_300_gate`;
+- system-wide available VRAM at launch: `6.80GB`; allocator cap: `6.46GB`;
+- selected batch 15, accumulation 5, effective batch 75;
+- first hard quality decision remains step-250 eval versus depth-one `6.5678`.

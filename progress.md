@@ -618,3 +618,7 @@ This file records concise action summaries only. Detailed planning belongs in
   width-792 trunk. The adapter candidate is functionally identical at
   initialization, passed remote 64/128/256/full smoke, and its two adapters
   diverged to cosine `0.368` after six steps.
+- Launched the rank-64 solver-adapter 300-step gate as job
+  `ac4141d6ea054a41bc13e37cde3f924f`. Bounded auto-batch used the true
+  `6.80GB` system-wide free VRAM and selected batch 15 with accumulation 5;
+  the run is isolated from any 3000-step launch decision.
