@@ -813,5 +813,11 @@ the invalid run remains preserved and is excluded from architecture evidence.
 
 A second launch was cancelled during auto-batch probing before training: more
 free VRAM allowed a candidate above 16, which would have changed effective
-batch from 64 to at least 84. The matched architecture gate now caps
-auto-batch at 16 so optimization batch is invariant to transient GPU capacity.
+batch from 64 to at least 84. A temporary cap at 16 was applied but then
+rejected as unnecessarily limiting safe hardware utilization.
+
+Decision correction: do not cap usable GPU capacity for architecture gates.
+Auto-batch may select the largest safe micro-batch; comparisons align by
+cumulative training tokens rather than requiring identical micro-batches or
+optimizer-step counts. The temporary batch-16 cap was removed before producing
+meaningful training evidence.

@@ -648,3 +648,7 @@ This file records concise action summaries only. Detailed planning belongs in
   would have selected batch 28 and changed effective batch to 84. Capped the
   architecture gate at batch 16 so it always uses the control's effective
   batch 64; this run produced no training steps and no evidence.
+- Reversed the temporary batch-16 cap: higher safe micro-batch is desirable and
+  architecture quality will be compared at matched cumulative tokens. Stopped
+  the capped run immediately and restored auto-batch maximum 64 before the
+  actual medium gate.

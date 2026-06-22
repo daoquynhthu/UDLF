@@ -13,7 +13,7 @@
   "batch_size": 4,
   "grad_accum_steps": 16,
   "auto_batch": true,
-  "auto_batch_max": 16,
+  "auto_batch_max": 64,
   "vram_fraction": 0.95,
   "auto_batch_predict_safety": 1.8,
   "auto_batch_probe_budget_fraction": 1.0,
