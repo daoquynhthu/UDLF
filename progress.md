@@ -652,3 +652,7 @@ This file records concise action summaries only. Detailed planning belongs in
   architecture quality will be compared at matched cumulative tokens. Stopped
   the capped run immediately and restored auto-batch maximum 64 before the
   actual medium gate.
+- Launched the max-batch head-specific-readout gate as job
+  `c4baffec734749a5b172d7fa0007203d`. Auto-batch selected 28 with accumulation
+  3. The first horizon-256 step was finite with loss `10.846`, slot cosine
+  `0.005`, and rank `14.42`; the run continues under token-aligned comparison.

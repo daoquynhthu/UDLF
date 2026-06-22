@@ -806,6 +806,14 @@ Active head-specific-readout gate:
 - step-250 eval, fixed 128-sequence loss, slot geometry, and readout-head rank
   must all pass before a 1000-step continuation.
 
+Current max-batch token-aligned run:
+
+- workspace job: `c4baffec734749a5b172d7fa0007203d`;
+- run: `L:\UDLF_REMOTE\runs\udlf_head_keys_64m_token_aligned_gate`;
+- selected batch 28, accumulation 3, effective batch 84;
+- comparisons map cumulative tokens to the control trajectory rather than
+  requiring equal optimizer steps.
+
 The first gate was cancelled at step 84 because its template used 100 warmup
 steps versus 200 in the control. This doubled early learning rate and made the
 trajectory non-comparable. The corrected matched gate uses 200 warmup steps;
