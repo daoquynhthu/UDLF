@@ -192,7 +192,8 @@ The first repair candidate now directly tests the leading attribution:
 - width reduced from 792 to 488 to preserve the 64M scale;
 - one solver update with a four-block deep vector field;
 - ODE training, removing the diffusion path that showed no checkpoint benefit;
-- block deltas accumulated with `1/sqrt(depth)` residual scaling.
+- block deltas accumulated with `1/depth` residual averaging.
+- deep block output projections initialized at `1/sqrt(depth)` scale.
 
 The resulting model has `64,523,673` parameters. The legacy depth-one path and
 checkpoint key surface are unchanged.
@@ -207,6 +208,20 @@ reserved memory `4.43GB`.
 This proves implementation stability, not quality superiority. The next
 decision point is a 1000-step matched-data quality gate with fixed-sample
 evaluation every 250 steps.
+
+The four-block width-488 candidate was subsequently rejected: it remained
+`0.06-0.23` loss worse than depth one across every 50-step window from steps
+100-299 and imposed substantially more launch overhead. A two-core width-640
+candidate was also rejected before remote training because reducing latent
+width alone increased matched full-512 initial gradient norm from `3.99` to
+`68.8`.
+
+The final candidate therefore preserves the validated width-792 shared core
+and adds a separate zero-output-initialized rank-64 residual adapter to each of
+the two solver half-steps. It has `64,330,065` parameters and is functionally
+identical to the repaired depth-one model at initialization. After six remote
+smoke steps, adapter output-weight cosine was `0.368` with difference norm
+`0.0194`, proving that the half-step corrections receive distinct updates.
 
 ## Ranked Root Causes
 

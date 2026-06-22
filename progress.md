@@ -606,3 +606,15 @@ This file records concise action summaries only. Detailed planning belongs in
   `udlf_hierarchical_64m_depth4_1000_gate`. Under current shared-card pressure,
   auto-batch safely selected 24 with accumulation 3 for an effective batch of
   72 and began training under an `11.09GB` allocator cap.
+- Stopped the depth-4 gate cleanly at step 315 when unrelated Jupyter CUDA
+  jobs saturated the shared 4090. Depth-4 was also consistently worse than the
+  repaired depth-1 model by `0.06-0.23` mean loss across step windows 100-299,
+  so it is rejected rather than resumed. Added a depth-2 width-640 candidate
+  with `64,585,681` parameters and the same two core evaluations per token as
+  the old solver-2 path.
+- Rejected the width-640 route before remote training: even a shared-core
+  width-640 control raised matched full-512 initial gradient norm from `3.99`
+  to `68.8`. Replaced it with rank-64 solver-step adapters on the validated
+  width-792 trunk. The adapter candidate is functionally identical at
+  initialization, passed remote 64/128/256/full smoke, and its two adapters
+  diverged to cosine `0.368` after six steps.

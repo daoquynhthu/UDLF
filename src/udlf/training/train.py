@@ -93,6 +93,29 @@ def _slot_geometry_metrics(state: torch.Tensor) -> dict[str, float]:
     }
 
 
+@torch.no_grad()
+def _solver_adapter_metrics(model: UDLFStageAModel) -> dict[str, float]:
+    adapters = model.prior.solver_adapters
+    if not adapters:
+        return {}
+    outputs = [adapter[-1].weight.detach().float() for adapter in adapters]
+    metrics = {
+        "solver_adapter_output_rms": float(
+            torch.stack([weight.pow(2).mean().sqrt() for weight in outputs]).mean().cpu()
+        )
+    }
+    if len(outputs) >= 2:
+        pair_cosines = []
+        pair_differences = []
+        for index, left in enumerate(outputs):
+            for right in outputs[index + 1 :]:
+                pair_cosines.append(F.cosine_similarity(left.flatten(), right.flatten(), dim=0))
+                pair_differences.append((left - right).pow(2).mean().sqrt())
+        metrics["solver_adapter_pair_cosine"] = float(torch.stack(pair_cosines).mean().cpu())
+        metrics["solver_adapter_difference_rms"] = float(torch.stack(pair_differences).mean().cpu())
+    return metrics
+
+
 def _parameter_count(model: nn.Module) -> int:
     return sum(parameter.numel() for parameter in model.parameters())
 
@@ -677,9 +700,9 @@ def _stability_diagnostics(
         ds = 1.0 / model.config.solver_steps
         z_base = base
         z_perturbed = perturbed
-        for _ in range(model.config.solver_steps):
-            drift_base, _ = model.prior.drift_and_sigma(z_base, token_embed, identity)
-            drift_perturbed, _ = model.prior.drift_and_sigma(z_perturbed, token_embed, identity)
+        for solver_index in range(model.config.solver_steps):
+            drift_base, _ = model.prior.drift_and_sigma(z_base, token_embed, identity, solver_index)
+            drift_perturbed, _ = model.prior.drift_and_sigma(z_perturbed, token_embed, identity, solver_index)
             z_base = z_base + drift_base * ds
             z_perturbed = z_perturbed + drift_perturbed * ds
         growth = (z_perturbed - z_base).norm() / (eps * direction.norm() + 1e-12)
@@ -1216,6 +1239,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 assert final_state is not None
                 metrics["diffusion_mode"] = model_config.diffusion_mode
                 metrics["prior_depth"] = model_config.prior_depth
+                metrics.update(_solver_adapter_metrics(model))
                 metrics["state_rms"] = float(final_state.detach().pow(2).mean().sqrt().cpu())
                 metrics.update(_slot_geometry_metrics(final_state))
                 if train_config.stability_diagnostics and (

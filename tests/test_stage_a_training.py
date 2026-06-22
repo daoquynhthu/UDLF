@@ -5,13 +5,16 @@ import json
 import torch
 from datasets import Dataset, DatasetDict
 
+from udlf.config import UDLFModelConfig
 from udlf.data import QueryRecallDataset, RealTokenQueryRecallDataset, RepeatingPatternDataset, TokenDatasetFromDisk
+from udlf.model import UDLFStageAModel
 from udlf.training.config import train_config_from_dict
 from udlf.training.train import (
     _bounded_probe_candidate,
     _build_optimizer,
     _choose_segment_len,
     _parse_nvidia_smi_memory,
+    _solver_adapter_metrics,
     _step_batch_schedule,
     run_stage_a,
 )
@@ -354,6 +357,28 @@ def test_nvidia_smi_memory_parser_reports_actual_free_bytes():
     free_bytes, total_bytes = _parse_nvidia_smi_memory("24564, 12180\n")
     assert total_bytes == 24564 * 1024**2
     assert free_bytes == (24564 - 12180) * 1024**2
+
+
+def test_solver_adapter_metrics_report_substep_divergence():
+    config = UDLFModelConfig(
+        vocab_size=32,
+        latent_slots=4,
+        latent_dim=16,
+        embed_dim=16,
+        ff_multiplier=2,
+        latent_heads=4,
+        readout_heads=2,
+        solver_steps=2,
+        solver_adapter_rank=4,
+        diffusion_mode="ode",
+    )
+    model = UDLFStageAModel(config)
+    assert _solver_adapter_metrics(model)["solver_adapter_difference_rms"] == 0.0
+    with torch.no_grad():
+        model.prior.solver_adapters[0][-1].weight.fill_(0.1)
+    metrics = _solver_adapter_metrics(model)
+    assert metrics["solver_adapter_output_rms"] > 0.0
+    assert metrics["solver_adapter_difference_rms"] > 0.0
 
 
 def test_segment_choices_reject_invalid_sequence_horizons():

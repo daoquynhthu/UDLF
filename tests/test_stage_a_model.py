@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import torch
 
 from udlf.config import UDLFModelConfig
@@ -164,6 +166,56 @@ def test_hierarchical_64m_candidate_is_parameter_matched():
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
     assert parameter_count == 64_523_673
     assert abs(parameter_count - 64_000_000) / 64_000_000 < 0.01
+
+
+def test_hierarchical2_64m_candidate_is_parameter_matched():
+    model = UDLFStageAModel(
+        UDLFModelConfig(
+            vocab_size=50257,
+            latent_slots=16,
+            latent_dim=792,
+            embed_dim=512,
+            ff_multiplier=4,
+            latent_heads=8,
+            readout_heads=8,
+            prior_depth=1,
+            solver_adapter_rank=64,
+            solver_steps=2,
+            diffusion_mode="ode",
+            tie_embeddings=True,
+        )
+    )
+    parameter_count = sum(parameter.numel() for parameter in model.parameters())
+    assert parameter_count == 64_330_065
+    assert abs(parameter_count - 64_000_000) / 64_000_000 < 0.01
+
+
+def test_solver_adapters_preserve_initial_function_and_receive_distinct_gradients():
+    base_config = UDLFModelConfig(
+        vocab_size=32,
+        latent_slots=4,
+        latent_dim=16,
+        embed_dim=16,
+        ff_multiplier=2,
+        latent_heads=4,
+        readout_heads=2,
+        solver_steps=2,
+        diffusion_mode="ode",
+    )
+    torch.manual_seed(7)
+    base = UDLFStageAModel(base_config)
+    torch.manual_seed(7)
+    model = UDLFStageAModel(replace(base_config, solver_adapter_rank=4))
+    tokens = torch.randint(0, base_config.vocab_size, (2, 6))
+    base_logits, _ = base.forward_prefix(tokens[:, :-1])
+    logits, _ = model.forward_prefix(tokens[:, :-1])
+    assert torch.equal(base_logits, logits)
+    output = model(tokens)
+    output.loss.backward()
+    first_up = model.prior.solver_adapters[0][-1].weight
+    second_up = model.prior.solver_adapters[1][-1].weight
+    assert first_up.grad is not None and second_up.grad is not None
+    assert not torch.equal(first_up.grad, second_up.grad)
 
 
 def test_tied_embedding_initialization_has_language_model_scale():

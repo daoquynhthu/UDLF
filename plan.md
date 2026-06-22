@@ -663,7 +663,11 @@ Decision:
 Architecture candidate:
 
 - four independently parameterized latent interaction blocks;
-- residual delta accumulation scaled by `1/sqrt(depth)`;
+- residual delta accumulation scaled by `1/depth` so initial vector-field
+  magnitude does not grow with hierarchy depth;
+- each deep block output projection initialized with an additional
+  `1/sqrt(depth)` scale to control full-horizon Jacobians while remaining
+  learnable;
 - `latent_dim=488`, `solver_steps=1`, and `diffusion_mode=ode`;
 - `64,523,673` trainable parameters;
 - legacy `prior_depth=1` checkpoints retain their original parameter surface.
@@ -693,3 +697,26 @@ Active run:
 - selected schedule: batch 24, accumulation 3, effective batch 72;
 - allocator cap: `11.09GB` from `11.67GB` system-wide available VRAM;
 - first decision checkpoint: step 250 fixed validation.
+
+Gate result:
+
+- stopped cleanly at step 315 after external Jupyter CUDA workloads filled the
+  card and pushed full-step duration as high as `1469s`;
+- depth-4 step-250 eval loss was `6.6594` versus depth-1 `6.5678`;
+- mean training loss remained worse by `0.06-0.23` in every 50-step window
+  from step 100 through 299 despite a larger effective batch;
+- depth-4 is rejected for both quality and execution cost.
+
+Final repair candidate under test:
+
+- preserve the validated `latent_dim=792`, shared prior core, and two half-step
+  integration path;
+- add one independent rank-64 residual adapter per solver substep;
+- zero-initialize adapter outputs so the initial function exactly matches the
+  stable repaired depth-1 model, then allow substeps to diverge through
+  position-specific gradients;
+- `64,330,065` parameters;
+- 300-step gate must beat the depth-1 step-250 evaluation and loss windows
+  before any 1000-step continuation;
+- no 3000-step experiment may start until this candidate passes the complete
+  300/1000-step gate and fixed-sample comparison.

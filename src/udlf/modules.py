@@ -107,20 +107,40 @@ class PriorDynamics(nn.Module):
         self.additional_cores = nn.ModuleList(
             LatentInteractionCore(config) for _ in range(config.prior_depth - 1)
         )
+        if config.prior_depth > 1:
+            output_scale = 1.0 / math.sqrt(config.prior_depth)
+            with torch.no_grad():
+                for core in (self.core, *self.additional_cores):
+                    core.out.weight.mul_(output_scale)
+                    if core.out.bias is not None:
+                        core.out.bias.mul_(output_scale)
         self.dissipation = nn.Linear(2 * d, d)
         self.diffusion = nn.Linear(2 * d, d)
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(0)
+            self.solver_adapters = nn.ModuleList(
+                nn.Sequential(
+                    nn.Linear(2 * d, config.solver_adapter_rank, bias=False),
+                    nn.SiLU(),
+                    nn.Linear(config.solver_adapter_rank, d, bias=False),
+                )
+                for _ in range(config.solver_steps)
+            ) if config.solver_adapter_rank > 0 else nn.ModuleList()
+        for adapter in self.solver_adapters:
+            nn.init.zeros_(adapter[-1].weight)
 
     def drift_and_sigma(
         self,
         state: Tensor,
         token_embed: Tensor,
         slot_identity: Tensor | None = None,
+        solver_index: int | None = None,
     ) -> tuple[Tensor, Tensor]:
         if not self.additional_cores:
             y, r = self.core(state, token_embed, slot_identity)
         else:
             features = state
-            residual_scale = 1.0 / math.sqrt(self.config.prior_depth)
+            residual_scale = 1.0 / self.config.prior_depth
             y = torch.zeros_like(state)
             r = state
             for core in (self.core, *self.additional_cores):
@@ -129,6 +149,11 @@ class PriorDynamics(nn.Module):
                 features = features + scaled_delta
                 y = y + scaled_delta
         joined = torch.cat([r, y], dim=-1)
+        if self.solver_adapters:
+            if solver_index is None or not 0 <= solver_index < len(self.solver_adapters):
+                raise ValueError("solver_index is required for configured solver adapters")
+            y = y + self.solver_adapters[solver_index](joined)
+            joined = torch.cat([r, y], dim=-1)
         lam = self.config.lambda_max * torch.sigmoid(self.dissipation(joined))
         drift = self.config.beta_max * torch.tanh(y) - lam * state
 
@@ -153,8 +178,8 @@ class PriorDynamics(nn.Module):
         ds = 1.0 / self.config.solver_steps
         sqrt_ds = math.sqrt(ds)
         z = state
-        for _ in range(self.config.solver_steps):
-            drift, sigma = self.drift_and_sigma(z, token_embed, slot_identity)
+        for solver_index in range(self.config.solver_steps):
+            drift, sigma = self.drift_and_sigma(z, token_embed, slot_identity, solver_index)
             if self.config.diffusion_mode == "ode":
                 noise = torch.zeros_like(z)
             else:

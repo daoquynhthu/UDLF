@@ -152,8 +152,13 @@ class UDLFStageAModel(nn.Module):
             ds = 1.0 / self.config.solver_steps
             sqrt_ds = math.sqrt(ds)
             kl = torch.zeros((), device=posterior_state.device, dtype=posterior_state.dtype)
-            for _ in range(self.config.solver_steps):
-                drift, sigma = self.prior.drift_and_sigma(posterior_state, token_embed, identity)
+            for solver_index in range(self.config.solver_steps):
+                drift, sigma = self.prior.drift_and_sigma(
+                    posterior_state,
+                    token_embed,
+                    identity,
+                    solver_index,
+                )
                 control = self.posterior_control(posterior_state, token_embed, target_embed)
                 if self.config.diffusion_mode == "ode":
                     noise = torch.zeros_like(posterior_state)
