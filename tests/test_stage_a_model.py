@@ -117,6 +117,55 @@ def test_slot_identity_is_persistent_and_trainable():
     assert model.slot_identity.grad.abs().sum() > 0
 
 
+def test_hierarchical_prior_uses_independent_blocks():
+    config = UDLFModelConfig(
+        vocab_size=32,
+        latent_slots=4,
+        latent_dim=16,
+        embed_dim=16,
+        ff_multiplier=2,
+        latent_heads=4,
+        readout_heads=2,
+        prior_depth=3,
+        solver_steps=1,
+        diffusion_mode="ode",
+    )
+    model = UDLFStageAModel(config)
+    assert len(model.prior.additional_cores) == 2
+    assert model.prior.core.u.weight.data_ptr() != model.prior.additional_cores[0].u.weight.data_ptr()
+    output = model(torch.randint(0, config.vocab_size, (2, 6)))
+    output.loss.backward()
+    assert model.prior.core.u.weight.grad is not None
+    assert all(core.u.weight.grad is not None for core in model.prior.additional_cores)
+
+
+def test_prior_depth_one_preserves_legacy_parameter_surface():
+    model = UDLFStageAModel(small_config(prior_depth=1))
+    keys = model.state_dict()
+    assert not any("additional_cores" in key for key in keys)
+
+
+def test_hierarchical_64m_candidate_is_parameter_matched():
+    model = UDLFStageAModel(
+        UDLFModelConfig(
+            vocab_size=50257,
+            latent_slots=16,
+            latent_dim=488,
+            embed_dim=512,
+            ff_multiplier=4,
+            latent_heads=8,
+            readout_heads=8,
+            prior_depth=4,
+            solver_steps=1,
+            diffusion_mode="ode",
+            tie_embeddings=True,
+        )
+    )
+    parameter_count = sum(parameter.numel() for parameter in model.parameters())
+    assert parameter_count == 64_523_673
+    assert abs(parameter_count - 64_000_000) / 64_000_000 < 0.01
+
+
 def test_tied_embedding_initialization_has_language_model_scale():
     torch.manual_seed(12)
     model = UDLFStageAModel(small_config(tie_embeddings=True))

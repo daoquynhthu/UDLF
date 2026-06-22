@@ -7,7 +7,14 @@ from datasets import Dataset, DatasetDict
 
 from udlf.data import QueryRecallDataset, RealTokenQueryRecallDataset, RepeatingPatternDataset, TokenDatasetFromDisk
 from udlf.training.config import train_config_from_dict
-from udlf.training.train import _build_optimizer, _choose_segment_len, _step_batch_schedule, run_stage_a
+from udlf.training.train import (
+    _bounded_probe_candidate,
+    _build_optimizer,
+    _choose_segment_len,
+    _parse_nvidia_smi_memory,
+    _step_batch_schedule,
+    run_stage_a,
+)
 
 
 def test_stage_a_training_writes_metrics(tmp_path):
@@ -335,6 +342,18 @@ def test_random_horizon_scales_batch_to_constant_activation_budget():
     assert _step_batch_schedule(config, 128) == (32, 2)
     assert _step_batch_schedule(config, 256) == (16, 4)
     assert _step_batch_schedule(config, 0) == (12, 6)
+
+
+def test_auto_batch_prediction_cannot_jump_past_probe_increment():
+    assert _bounded_probe_candidate(64, best=8, upper=64, max_increment=8) == 16
+    assert _bounded_probe_candidate(13, best=8, upper=64, max_increment=8) == 13
+    assert _bounded_probe_candidate(64, best=60, upper=64, max_increment=8) == 64
+
+
+def test_nvidia_smi_memory_parser_reports_actual_free_bytes():
+    free_bytes, total_bytes = _parse_nvidia_smi_memory("24564, 12180\n")
+    assert total_bytes == 24564 * 1024**2
+    assert free_bytes == (24564 - 12180) * 1024**2
 
 
 def test_segment_choices_reject_invalid_sequence_horizons():

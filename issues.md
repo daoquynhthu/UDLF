@@ -494,6 +494,39 @@ Exit criteria:
   ablation run starts; otherwise throughput and selected batch are not valid
   UDLF evidence.
 
+### Auto-batch predictor could make an unbounded remote jump
+
+Status: resolved on 2026-06-22.
+
+The hierarchical 64M smoke measured batch 4 at `1.85 GiB` and batch 8 at
+`2.51 GiB`, then jumped directly to batch 64. The configured
+`auto_batch_max_probe_increment=8` was not used by the search loop. Batch 64
+filled the 4090 and remained inside a CUDA probe for more than 30 minutes,
+recreating the WDDM paging risk before training began.
+
+Resolution plan:
+
+1. Bound every prediction-driven candidate by
+   `best + auto_batch_max_probe_increment`.
+2. Continue collecting real memory anchors and use binary search only after a
+   failed upper bound exists.
+3. Re-run the hierarchical smoke only when unrelated GPU allocations leave a
+   credible free-VRAM budget.
+4. Require the probe log to show bounded candidates and require full-BPTT to
+   complete before starting the 1000-step quality gate.
+
+Resolution:
+
+- prediction-driven candidates are now bounded by
+  `auto_batch_max_probe_increment`;
+- probing stops when the predicted safe cap is no larger than the current best;
+- Windows available VRAM uses the smaller of PyTorch free memory and
+  `nvidia-smi total-used`, because WDDM `torch.cuda.mem_get_info()` failed to
+  account for roughly `12GB` held by unrelated Jupyter CUDA processes;
+- the shared-card revalidation measured `11.67GB` actually available, applied
+  an `11.09GB` allocator cap, probed `4 -> 8 -> 16 -> 24`, and stopped at 24
+  without paging.
+
 ## Resolved
 
 ### UDLF eval inherited the auto-selected training batch

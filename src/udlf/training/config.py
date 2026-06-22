@@ -102,6 +102,7 @@ class UDLFTrainConfig:
     ff_multiplier: int = 2
     latent_heads: int = 4
     readout_heads: int = 2
+    prior_depth: int = 1
     solver_steps: int = 2
     beta_max: float = 0.2
     lambda_max: float = 0.5
@@ -245,6 +246,7 @@ class UDLFTrainConfig:
             ff_multiplier=self.ff_multiplier,
             latent_heads=self.latent_heads,
             readout_heads=self.readout_heads,
+            prior_depth=self.prior_depth,
             solver_steps=self.solver_steps,
             beta_max=self.beta_max,
             lambda_max=self.lambda_max,

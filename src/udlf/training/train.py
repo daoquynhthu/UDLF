@@ -6,6 +6,7 @@ import argparse
 import gc
 import json
 import math
+import subprocess
 import time
 import traceback
 from pathlib import Path
@@ -136,17 +137,56 @@ def _clear_cuda(device: torch.device) -> None:
             torch.cuda.reset_peak_memory_stats(device)
 
 
+def _parse_nvidia_smi_memory(output: str) -> tuple[int, int]:
+    line = next((line.strip() for line in output.splitlines() if line.strip()), "")
+    parts = [part.strip() for part in line.split(",")]
+    if len(parts) != 2:
+        raise ValueError(f"unexpected nvidia-smi memory output: {output!r}")
+    total_mib, used_mib = (int(value) for value in parts)
+    return max(0, total_mib - used_mib) * 1024**2, total_mib * 1024**2
+
+
+def _system_cuda_memory_info(device_index: int) -> tuple[int, int] | None:
+    try:
+        completed = subprocess.run(
+            [
+                "nvidia-smi",
+                f"--id={device_index}",
+                "--query-gpu=memory.total,memory.used",
+                "--format=csv,noheader,nounits",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return _parse_nvidia_smi_memory(completed.stdout)
+    except (FileNotFoundError, subprocess.SubprocessError, ValueError):
+        return None
+
+
+def _available_cuda_memory(device: torch.device) -> tuple[int, int, int, int | None]:
+    torch_free, total_bytes = torch.cuda.mem_get_info(device)
+    device_index = device.index if device.index is not None else torch.cuda.current_device()
+    system_info = _system_cuda_memory_info(device_index)
+    system_free = system_info[0] if system_info is not None else None
+    available = min(torch_free, system_free) if system_free is not None else torch_free
+    return available, total_bytes, torch_free, system_free
+
+
 def _configure_cuda_memory_cap(config: UDLFTrainConfig, device: torch.device, logger) -> int:
     if device.type != "cuda" or not config.enforce_cuda_memory_cap:
         return 0
-    free_bytes, total_bytes = torch.cuda.mem_get_info(device)
-    cap_bytes = int(free_bytes * config.vram_fraction)
+    available_bytes, total_bytes, torch_free, system_free = _available_cuda_memory(device)
+    cap_bytes = int(available_bytes * config.vram_fraction)
     cap_fraction = min(1.0, cap_bytes / total_bytes)
     device_index = device.index if device.index is not None else torch.cuda.current_device()
     torch.cuda.set_per_process_memory_fraction(cap_fraction, device_index)
     logger.info(
-        "CUDA allocator cap set available=%.2fGiB total=%.2fGiB cap=%.2fGiB fraction=%.4f",
-        free_bytes / 1024**3,
+        "CUDA allocator cap set available=%.2fGiB torch_free=%.2fGiB system_free=%s total=%.2fGiB cap=%.2fGiB fraction=%.4f",
+        available_bytes / 1024**3,
+        torch_free / 1024**3,
+        "unknown" if system_free is None else f"{system_free / 1024**3:.2f}GiB",
         total_bytes / 1024**3,
         cap_bytes / 1024**3,
         cap_fraction,
@@ -158,6 +198,12 @@ def _sample_training_batch(dataset, batch_size: int, device: torch.device) -> tu
     batch = dataset.sample(batch_size, device=device)
     loss_mask = dataset.loss_mask(batch_size, device=device) if hasattr(dataset, "loss_mask") else None
     return batch, loss_mask
+
+
+def _bounded_probe_candidate(predicted: int, *, best: int, upper: int, max_increment: int) -> int:
+    if best >= upper:
+        return upper
+    return max(best + 1, min(predicted, upper, best + max_increment))
 
 
 def _masked_sequence_loss(logits: torch.Tensor, targets: torch.Tensor, loss_mask: torch.Tensor | None, vocab_size: int) -> torch.Tensor:
@@ -356,8 +402,8 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
     original_batch = train_config.batch_size
     original_accum = train_config.grad_accum_steps
     target_micro_batches = max(1, original_batch * original_accum)
-    free_bytes, total_bytes = torch.cuda.mem_get_info(device)
-    budget_bytes = int(free_bytes * train_config.vram_fraction)
+    available_bytes, total_bytes, torch_free, system_free = _available_cuda_memory(device)
+    budget_bytes = int(available_bytes * train_config.vram_fraction)
     selection_budget_bytes = budget_bytes
     probe_budget_bytes = int(selection_budget_bytes * train_config.auto_batch_probe_budget_fraction)
     upper = max(1, train_config.auto_batch_max)
@@ -365,10 +411,12 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
     tried: dict[int, tuple[bool, int]] = {}
 
     logger.info(
-        "auto-batch probing: gpu=%s total_vram=%.2fGiB free_vram=%.2fGiB budget=%.2fGiB select_budget=%.2fGiB probe_budget=%.2fGiB max_batch=%d",
+        "auto-batch probing: gpu=%s total_vram=%.2fGiB available_vram=%.2fGiB torch_free=%.2fGiB system_free=%s budget=%.2fGiB select_budget=%.2fGiB probe_budget=%.2fGiB max_batch=%d",
         torch.cuda.get_device_name(device),
         total_bytes / 1024**3,
-        free_bytes / 1024**3,
+        available_bytes / 1024**3,
+        torch_free / 1024**3,
+        "unknown" if system_free is None else f"{system_free / 1024**3:.2f}GiB",
         budget_bytes / 1024**3,
         selection_budget_bytes / 1024**3,
         probe_budget_bytes / 1024**3,
@@ -524,9 +572,20 @@ def _probe_auto_batch_size(train_config: UDLFTrainConfig, device: torch.device, 
                 )
 
     while failed_upper is None and best > 0 and best < upper:
-        candidate = predicted_safe_cap()
-        if candidate <= best:
-            candidate = min(upper, max(best + 1, best * 2))
+        predicted = predicted_safe_cap()
+        if predicted <= best:
+            logger.info(
+                "auto-batch prediction reached safe limit at batch=%d; stopping probes",
+                best,
+            )
+            failed_upper = best + 1
+            break
+        candidate = _bounded_probe_candidate(
+            predicted,
+            best=best,
+            upper=upper,
+            max_increment=train_config.auto_batch_max_probe_increment,
+        )
         ok, peak = try_batch(candidate)
         if ok and peak <= selection_budget_bytes:
             best = candidate
@@ -1118,7 +1177,9 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
             assert loss is not None
             loss_for_metrics = loss / step_grad_accum
             grad_norm = _grad_norm(model.parameters())
+            grad_clip_scale = 1.0
             if train_config.grad_clip > 0:
+                grad_clip_scale = min(1.0, train_config.grad_clip / max(grad_norm, 1e-12))
                 torch.nn.utils.clip_grad_norm_(model.parameters(), train_config.grad_clip)
             optimizer.step()
             if scheduler is not None:
@@ -1136,6 +1197,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
                 "step_seconds": round(step_elapsed, 6),
                 "step_tokens_per_second": round(batch_tokens / step_elapsed, 3),
                 "grad_norm": grad_norm,
+                "grad_clip_scale": grad_clip_scale,
                 "learning_rate": float(optimizer.param_groups[0]["lr"]),
                 "architecture": train_config.architecture,
                 "parameter_count": parameter_count,
@@ -1153,6 +1215,7 @@ def run_stage_a(config: dict[str, Any] | UDLFTrainConfig, run_dir: Path | None =
             if isinstance(model, UDLFStageAModel):
                 assert final_state is not None
                 metrics["diffusion_mode"] = model_config.diffusion_mode
+                metrics["prior_depth"] = model_config.prior_depth
                 metrics["state_rms"] = float(final_state.detach().pow(2).mean().sqrt().cpu())
                 metrics.update(_slot_geometry_metrics(final_state))
                 if train_config.stability_diagnostics and (

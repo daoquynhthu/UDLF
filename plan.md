@@ -659,3 +659,29 @@ Decision:
   measurable quality benefit;
 - retain configurable clipping and record the applied clip scale, but do not
   claim it explains the existing quality gap.
+
+Architecture candidate:
+
+- four independently parameterized latent interaction blocks;
+- residual delta accumulation scaled by `1/sqrt(depth)`;
+- `latent_dim=488`, `solver_steps=1`, and `diffusion_mode=ode`;
+- `64,523,673` trainable parameters;
+- legacy `prior_depth=1` checkpoints retain their original parameter surface.
+
+Validation status:
+
+- local RTX 5060 full-512 forward/backward: loss `10.856`, grad norm `3.85`,
+  finite, peak reserved `2.18GB`;
+- remote RTX 4090 smoke covered 64/128/256/full-512 with finite loss and slot
+  rank `13.7-14.9`; full gradient norm was `7.08-7.25`;
+- shared-card auto-batch now reads system-wide free VRAM and selected batch 24
+  under an `11.09GB` process cap.
+
+Next gate:
+
+- run 1000 matched-data steps with fixed-sample evaluations at 250-step
+  intervals;
+- require a better fixed-sample trajectory than the repaired depth-1 model at
+  matched steps before extending to 3000;
+- use `full_bptt_batch_size=4` while unrelated CUDA jobs leave only about
+  `11.7GB` actually available.

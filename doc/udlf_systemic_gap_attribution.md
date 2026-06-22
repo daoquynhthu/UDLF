@@ -184,6 +184,30 @@ elementwise operations will not remove the launch-order bottleneck.
 Another blind 3000-step run is not justified until at least one of these
 experiments moves the fixed-sample loss in the predicted direction.
 
+## Implemented Architecture Candidate
+
+The first repair candidate now directly tests the leading attribution:
+
+- `prior_depth=4` independent latent interaction blocks;
+- width reduced from 792 to 488 to preserve the 64M scale;
+- one solver update with a four-block deep vector field;
+- ODE training, removing the diffusion path that showed no checkpoint benefit;
+- block deltas accumulated with `1/sqrt(depth)` residual scaling.
+
+The resulting model has `64,523,673` parameters. The legacy depth-one path and
+checkpoint key surface are unchanged.
+
+An initial implementation applied RMS normalization to the final deep feature
+before constructing drift. It passed short horizons but produced full-512
+gradient norms from `49` to `1319` and was rejected. Direct scaled-delta
+accumulation reduced local full-512 gradient norm to `3.85`; remote smoke then
+measured finite full-512 norms of `7.08-7.25`, slot rank `13.7-14.9`, and peak
+reserved memory `4.43GB`.
+
+This proves implementation stability, not quality superiority. The next
+decision point is a 1000-step matched-data quality gate with fixed-sample
+evaluation every 250 steps.
+
 ## Ranked Root Causes
 
 1. **Architectural depth and parameter organization.** Strong inference. A

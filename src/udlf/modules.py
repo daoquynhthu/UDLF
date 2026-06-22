@@ -104,6 +104,9 @@ class PriorDynamics(nn.Module):
         self.config = config
         d = config.latent_dim
         self.core = LatentInteractionCore(config)
+        self.additional_cores = nn.ModuleList(
+            LatentInteractionCore(config) for _ in range(config.prior_depth - 1)
+        )
         self.dissipation = nn.Linear(2 * d, d)
         self.diffusion = nn.Linear(2 * d, d)
 
@@ -113,7 +116,18 @@ class PriorDynamics(nn.Module):
         token_embed: Tensor,
         slot_identity: Tensor | None = None,
     ) -> tuple[Tensor, Tensor]:
-        y, r = self.core(state, token_embed, slot_identity)
+        if not self.additional_cores:
+            y, r = self.core(state, token_embed, slot_identity)
+        else:
+            features = state
+            residual_scale = 1.0 / math.sqrt(self.config.prior_depth)
+            y = torch.zeros_like(state)
+            r = state
+            for core in (self.core, *self.additional_cores):
+                delta, r = core(features, token_embed, slot_identity)
+                scaled_delta = residual_scale * delta
+                features = features + scaled_delta
+                y = y + scaled_delta
         joined = torch.cat([r, y], dim=-1)
         lam = self.config.lambda_max * torch.sigmoid(self.dissipation(joined))
         drift = self.config.beta_max * torch.tanh(y) - lam * state

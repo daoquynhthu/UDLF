@@ -590,3 +590,14 @@ This file records concise action summaries only. Detailed planning belongs in
   Clipping changes the effective scalar multiplier from `0.233` to `0.197`
   rather than creating a direction conflict. Architecture depth remains the
   primary quality repair target.
+- Implemented a matched-parameter hierarchical UDLF candidate with four
+  independent latent blocks, width 488, one ODE solver step, and `64,523,673`
+  parameters. The first deep formulation normalized drift features to unit RMS
+  and caused full-512 gradient norms of `49-1319`; it was rejected and replaced
+  by `1/sqrt(depth)` residual delta accumulation. The corrected candidate
+  passed local and remote full-BPTT stability checks.
+- Fixed shared-WDDM VRAM accounting and auto-batch termination. On the remote
+  4090, PyTorch incorrectly reported `22.46GB` free while system-wide
+  `nvidia-smi` showed `11.67GB`. The trainer now takes the smaller value,
+  applied an `11.09GB` allocator cap, and safely selected batch 24 via bounded
+  probes. Full test suite passes `51` tests.
