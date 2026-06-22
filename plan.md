@@ -742,7 +742,9 @@ Current final-repair boundary:
 
 1. Remove rejected hierarchy/adapter variants from the launch path; retain
    their reports as negative evidence.
-2. Preserve the validated width-792, depth-one, solver-2 ODE quality baseline.
+2. Preserve the validated width-792, depth-one, solver-2 architecture baseline.
+   The completed model used fixed-sigma training and ODE evaluation; ODE
+   training still requires its own medium gate before becoming the default.
 3. Add an independent full-BPTT batch probe to eliminate avoidable
    accumulation overhead under variable available VRAM.
 4. Measure remote Python-3.12 `torch.compile` steady state only when external
