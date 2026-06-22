@@ -640,3 +640,7 @@ This file records concise action summaries only. Detailed planning belongs in
   `392e94f41cae43cbbb76d8736fbb163b`. Auto-batch selected 16 with accumulation
   4, exactly matching the control effective batch of 64. No performance work
   or 3000-step launch will proceed until this architecture gate is resolved.
+- Cancelled that first gate at step 84 after detecting `warmup_steps=100`
+  versus 200 in the control. Early apparent gains were confounded by twice the
+  learning rate and the 60-83 window was already about `0.014-0.018` worse.
+  Corrected the template to 200 warmup steps before restarting in a new run.

@@ -805,3 +805,8 @@ Active head-specific-readout gate:
 - selected batch 16, accumulation 4, effective batch 64, matching the control;
 - step-250 eval, fixed 128-sequence loss, slot geometry, and readout-head rank
   must all pass before a 1000-step continuation.
+
+The first gate was cancelled at step 84 because its template used 100 warmup
+steps versus 200 in the control. This doubled early learning rate and made the
+trajectory non-comparable. The corrected matched gate uses 200 warmup steps;
+the invalid run remains preserved and is excluded from architecture evidence.
