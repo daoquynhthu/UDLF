@@ -622,3 +622,9 @@ This file records concise action summaries only. Detailed planning belongs in
   `ac4141d6ea054a41bc13e37cde3f924f`. Bounded auto-batch used the true
   `6.80GB` system-wide free VRAM and selected batch 15 with accumulation 5;
   the run is isolated from any 3000-step launch decision.
+- Cancelled the solver-adapter gate at step 64. It was already worse than the
+  depth-one control at matched steps, drove slot cosine to `0.979` with
+  centered RMS `0.148`, and reduced same-device local throughput by 22 percent.
+  Current remote throughput is additionally contaminated by four Jupyter CUDA
+  kernels and only `6.8GB` free VRAM, but the adapter regression is intrinsic
+  and independently measured. The 3000-step launch remains blocked.

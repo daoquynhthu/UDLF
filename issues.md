@@ -121,6 +121,29 @@ Resolution plan:
 6. Build a fused recurrent token/solver cell; require forward and gradient
    parity before performance claims.
 
+Latest rejected repairs:
+
+- four-block width-488 prior: `0.06-0.23` worse mean loss over steps 100-299
+  and additional dispatch overhead;
+- width-640 duplicated/shared prior controls: matched full-512 initial gradient
+  norm rose from `3.99` at width 792 to `68.8` at width 640;
+- rank-64 solver-step adapters: at step 63 loss was `7.7210` versus depth-one
+  `7.6423`, slot cosine was `0.979` versus `0.184`, and centered slot RMS was
+  `0.148` versus `0.855`; local matched throughput fell from `421` to
+  `328 tok/s` (`-22%`). The gate was cancelled at step 64.
+
+Performance acceptance is separate from remote contention:
+
+- hardware-contended measurements are diagnostic only;
+- intrinsic overhead is measured on the same GPU, batch, sequence, and code
+  path against the depth-one base;
+- full-BPTT needs its own memory probe so a conservative fixed batch cannot
+  silently create dozens of accumulation passes;
+- `torch.compile` must be measured on remote Python 3.12 after warmup; local
+  Python 3.14 does not support `torch.compile`;
+- if compile does not materially reduce launch count and sustained step time,
+  the complete recurrent token/solver cell requires a fused CUDA/Triton path.
+
 Exit criteria: attribute the remaining quality gap to a specific component or
 training mechanism and demonstrate an improvement on the same fixed sample
 without reintroducing slot collapse or invalidating the Mamba comparison.

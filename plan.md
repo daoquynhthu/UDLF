@@ -728,3 +728,27 @@ Active adapter gate:
 - system-wide available VRAM at launch: `6.80GB`; allocator cap: `6.46GB`;
 - selected batch 15, accumulation 5, effective batch 75;
 - first hard quality decision remains step-250 eval versus depth-one `6.5678`.
+
+Adapter gate result:
+
+- cancelled at step 64; no 3000-step continuation;
+- step-63 loss `7.7210` versus depth-one `7.6423`;
+- slot pair cosine `0.979` versus `0.184`, and centered RMS `0.148` versus
+  `0.855`, proving early common-state collapse;
+- same-device local throughput `328 tok/s` versus base `421 tok/s`, an
+  intrinsic 22 percent regression independent of remote contention.
+
+Current final-repair boundary:
+
+1. Remove rejected hierarchy/adapter variants from the launch path; retain
+   their reports as negative evidence.
+2. Preserve the validated width-792, depth-one, solver-2 ODE quality baseline.
+3. Add an independent full-BPTT batch probe to eliminate avoidable
+   accumulation overhead under variable available VRAM.
+4. Measure remote Python-3.12 `torch.compile` steady state only when external
+   CUDA workloads release the card.
+5. If compile does not materially improve launch count and throughput, fuse
+   the complete recurrent token/solver cell with forward and gradient parity.
+6. Reopen quality architecture work around local token representation without
+   shrinking latent width or weakening slot separation.
+7. Start 3000 steps only after both quality and performance gates pass.
