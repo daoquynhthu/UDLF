@@ -630,3 +630,32 @@ insufficient independently parameterized transformation depth. The leading
 performance cause is the serial Python/solver execution path. Matched profiling
 measured a `39.6x` operator-call ratio and `56,962` UDLF CUDA launches in one
 batch-2, length-128 training step.
+
+### Causal diagnosis before the next architecture revision
+
+Status: gradient diagnosis complete; architecture repair in progress.
+
+1. Recompute gradients from the repaired checkpoint on identical validation
+   sequences under 64, 128, 256, and full-512 credit horizons.
+2. Report total and per-module gradient norms, the actual global-clip scale,
+   and cross-horizon gradient cosine. Global clipping is a scalar rescale and
+   must not be described as direction distortion without separate evidence.
+3. Use deterministic ODE rollout for this diagnosis so Brownian path variance
+   cannot contaminate the horizon comparison.
+4. If long-horizon gradients are directionally consistent but only rescaled,
+   repair the effective learning-rate protocol before changing architecture.
+5. If horizon gradients disagree substantially while the quality gap remains
+   flat by position, prioritize matched-parameter independently parameterized
+   latent depth.
+6. Do not launch another 3000-step run until the chosen repair passes unit
+   tests, a remote CUDA smoke, and a fixed-sample quality gate.
+
+Decision:
+
+- gradient direction remains strongly aligned across horizons, so clipping is
+  not the primary repair target;
+- implement a matched-parameter independently parameterized latent hierarchy;
+- train the candidate in ODE mode because final-checkpoint diffusion showed no
+  measurable quality benefit;
+- retain configurable clipping and record the applied clip scale, but do not
+  claim it explains the existing quality gap.

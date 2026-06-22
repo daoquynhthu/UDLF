@@ -584,3 +584,9 @@ This file records concise action summaries only. Detailed planning belongs in
   performance deficit is graph fragmentation across the whole recurrent
   token/solver cell, not one slow matrix multiplication. Full suite passes
   `43` tests.
+- Recomputed repaired-checkpoint gradients on the same four validation
+  sequences under 64/128/256/512 credit horizons with ODE rollout. Total
+  gradient cosines were `0.94-0.99`; module minima remained `0.91-1.00`.
+  Clipping changes the effective scalar multiplier from `0.233` to `0.197`
+  rather than creating a direction conflict. Architecture depth remains the
+  primary quality repair target.

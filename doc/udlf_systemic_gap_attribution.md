@@ -95,6 +95,28 @@ maps nearly every long-horizon update onto the same clipping radius. It does
 not by itself prove that clipping causes the quality gap, but it is the
 strongest measured training-protocol mismatch.
 
+Checkpoint-level gradients on the same four 512-token validation sequences
+make the causal interpretation narrower:
+
+| Credit horizon | Gradient norm | Clip scale at 1.0 |
+|---|---:|---:|
+| 64 | 4.292 | 0.233 |
+| 128 | 4.561 | 0.219 |
+| 256 | 4.853 | 0.206 |
+| 512 | 5.087 | 0.197 |
+
+Total-gradient cosine is `0.940` for 64 versus 512 and `0.993` for 256 versus
+512. Minimum cross-horizon module cosines are approximately `0.91` for
+injection, `0.92` for prior dynamics, `0.93` for initial state, `0.97` for
+slot identity, and `1.00` for readout. These measurements use identical data
+and deterministic ODE rollout.
+
+Global norm clipping is a scalar rescale, and the measured gradients remain
+strongly directionally aligned. The evidence therefore supports a modest
+horizon-dependent effective-step-size mismatch, not a primary direction
+conflict capable of explaining the full quality gap. Gradient clipping is
+demoted from the leading root cause.
+
 ## Architectural Attribution
 
 ### Strong inference: insufficient hierarchical transformation depth
@@ -168,14 +190,14 @@ experiments moves the fixed-sample loss in the predicted direction.
    single shared recurrent field plus a `12.17M` readout is being asked to
    replace a 12-layer hierarchy. The uniform early-to-late loss gap supports a
    local representation deficit.
-2. **Horizon-dependent clipping.** Confirmed training mismatch, causal impact
-   not yet isolated. Almost every 256/full update is clipped while Mamba almost
-   never clips.
-3. **Fragmented serial execution.** Confirmed performance cause. The complete
+2. **Fragmented serial execution.** Confirmed performance cause. The complete
    recurrent cell generates roughly 40x as many operator calls as Mamba in the
    matched profiler.
-4. **Unproductive diffusion.** Confirmed at the final checkpoint. It adds
+3. **Unproductive diffusion.** Confirmed at the final checkpoint. It adds
    stochastic execution but no measurable evaluation gain.
+4. **Horizon-dependent clipping.** Confirmed but secondary. The 64-512
+   gradients remain strongly aligned; clipping mainly changes effective step
+   size by about 16 percent across those horizons.
 
 The evidence does not support another width increase, more training tokens, or
 more aggressive GPU scheduling as primary remedies.
