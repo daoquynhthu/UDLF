@@ -797,3 +797,11 @@ Confirmed fidelity defect and repair:
 - local full-512 and remote all-horizon smoke passed without slot collapse;
 - 300-step quality gate is the next decision. Performance optimization remains
   deferred and 3000 steps remain prohibited.
+
+Active head-specific-readout gate:
+
+- workspace job: `392e94f41cae43cbbb76d8736fbb163b`;
+- run: `L:\UDLF_REMOTE\runs\udlf_head_keys_64m_300_gate`;
+- selected batch 16, accumulation 4, effective batch 64, matching the control;
+- step-250 eval, fixed 128-sequence loss, slot geometry, and readout-head rank
+  must all pass before a 1000-step continuation.

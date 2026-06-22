@@ -636,3 +636,7 @@ This file records concise action summaries only. Detailed planning belongs in
   `2.24`. Implemented an exactly parameter-matched head-specific-key candidate
   by reallocating one FF expansion unit. Local full-512 and remote all-horizon
   smoke passed; tests pass `56` cases.
+- Launched the head-specific-readout 300-step quality gate as job
+  `392e94f41cae43cbbb76d8736fbb163b`. Auto-batch selected 16 with accumulation
+  4, exactly matching the control effective batch of 64. No performance work
+  or 3000-step launch will proceed until this architecture gate is resolved.
