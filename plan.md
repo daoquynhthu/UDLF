@@ -757,7 +757,7 @@ Current final-repair boundary:
 
 ### Local token-channel diagnosis
 
-Status: complete; head-specific readout repair in medium validation.
+Status: diagnosis complete; first head-specific readout gate is methodologically invalid.
 
 The v0.6 equations and implementation agree on the main injection, shared
 interaction, dissipation, diffusion, and token-conditioned multi-query readout
@@ -787,7 +787,7 @@ The token channel is functional. Injection relative jump is only `0.073` and
 injection-state cosine is `0.9976`, so state overwrite is not the leading
 problem.
 
-Confirmed fidelity defect and repair:
+Confirmed fidelity defect and experimental repair:
 
 - v0.6 requires head-specific readout key projections `W_{r,h}`;
 - the implementation shared one key projection across eight heads;
@@ -795,24 +795,25 @@ Confirmed fidelity defect and repair:
 - candidate uses eight independent key projections and reduces prior FF
   multiplier from 4 to 3, preserving total parameters at `64.024M`;
 - local full-512 and remote all-horizon smoke passed without slot collapse;
-- 300-step quality gate is the next decision. Performance optimization remains
-  deferred and 3000 steps remain prohibited.
+- the completed 300-step run is not a valid quality comparison because its
+  cosine schedule used `max_steps=300`, while the control used 3000. The
+  candidate decayed from peak LR to `6e-5` during steps 200-300, while the
+  token-aligned control remained near `5.94e-4`.
 
-Active head-specific-readout gate:
-
-- workspace job: `392e94f41cae43cbbb76d8736fbb163b`;
-- run: `L:\UDLF_REMOTE\runs\udlf_head_keys_64m_300_gate`;
-- selected batch 16, accumulation 4, effective batch 64, matching the control;
-- step-250 eval, fixed 128-sequence loss, slot geometry, and readout-head rank
-  must all pass before a 1000-step continuation.
-
-Current max-batch token-aligned run:
+Completed max-batch run:
 
 - workspace job: `c4baffec734749a5b172d7fa0007203d`;
 - run: `L:\UDLF_REMOTE\runs\udlf_head_keys_64m_token_aligned_gate`;
 - selected batch 28, accumulation 3, effective batch 84;
-- comparisons map cumulative tokens to the control trajectory rather than
-  requiring equal optimizer steps.
+- the run finished 300/300 with finite metrics, final loss `6.3289`, slot rank
+  `10.45/16`, and no slot collapse;
+- fixed-sample loss is `6.4496`, but the trained readout head-output rank is
+  only `1.55/8`, down from `4.47/8` in the six-step smoke and below the old
+  shared-key checkpoint's `2.24/8`;
+- the correct token-aligned control window for candidate steps 251-300 is old
+  steps 329-394, not 361-427. Its mean loss is `6.2493` versus `6.4386`, but
+  this difference is confounded by the mismatched LR schedule and is not
+  architecture evidence.
 
 The first gate was cancelled at step 84 because its template used 100 warmup
 steps versus 200 in the control. This doubled early learning rate and made the
@@ -829,3 +830,15 @@ Auto-batch may select the largest safe micro-batch; comparisons align by
 cumulative training tokens rather than requiring identical micro-batches or
 optimizer-step counts. The temporary batch-16 cap was removed before producing
 meaningful training evidence.
+
+Next quality-gate boundary:
+
+1. Decouple experiment stop length from LR schedule length and advance warmup
+   and cosine decay by cumulative effective tokens. With variable auto-batch,
+   matching a 3000-step schedule by optimizer step is still insufficient.
+2. Align comparison windows from cumulative effective tokens and report the
+   LR range for both windows.
+3. Preserve maximum safe micro-batch selection; do not force batch 16.
+4. Require fixed-sample loss, slot geometry, and trained readout-head rank.
+5. Do not continue to 1000 or 3000 steps unless the corrected gate improves
+   quality and does not collapse readout diversity.

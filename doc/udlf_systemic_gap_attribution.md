@@ -236,8 +236,21 @@ The head-specific-key candidate reallocates exactly `7d^2` weights from prior
 FF width (`4 -> 3`) into seven additional readout key projections. It has
 `64,024,353` parameters versus `64,025,937` for the control. Remote smoke
 covered 64/128/256/full-512 paths without slot collapse; six-step head output
-rank was `4.47/8`. This is implementation and geometry evidence only. A
-300-step matched training gate must still establish quality.
+rank was `4.47/8`.
+
+The first 300-step gate cannot establish quality. Its `max_steps=300` setting
+also defined the cosine schedule horizon, so LR decayed to `6e-5` by step 300;
+the 3000-step control remained near `5.94e-4` at the same cumulative-token
+point. The correct control window for candidate steps 251-300 is steps 329-394,
+with mean losses `6.2493` and `6.4386` respectively, but that gap is schedule
+confounded. The fixed 128-sequence diagnosis is still useful as geometry
+evidence: correct loss is `6.4496`, zero/shuffled readout conditions add
+`1.1851/2.1057`, and head-output rank has fallen to `1.55/8`. Independent full
+keys therefore do not by themselves preserve multi-head value diversity and
+are not promoted to a longer run. A corrected gate must advance LR by
+cumulative effective tokens using the control's warmup-token and total-token
+horizons; reusing a step-based 3000-step horizon would remain confounded when
+auto-batch changes effective batch.
 
 ## Ranked Root Causes
 

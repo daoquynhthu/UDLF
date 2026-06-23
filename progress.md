@@ -656,3 +656,20 @@ This file records concise action summaries only. Detailed planning belongs in
   `c4baffec734749a5b172d7fa0007203d`. Auto-batch selected 28 with accumulation
   3. The first horizon-256 step was finite with loss `10.846`, slot cosine
   `0.005`, and rank `14.42`; the run continues under token-aligned comparison.
+- Audited the completed 300-step head-specific-key run. It finished with finite
+  metrics and healthy slot geometry, but its cosine LR schedule decayed to
+  `6e-5` because `max_steps=300`; the 3000-step control remained near
+  `5.94e-4` at the corresponding token point. The prior control window
+  `361-427` was also misaligned; candidate steps `251-300` map to old steps
+  `329-394`. Therefore the observed mean loss gap (`6.4386` versus `6.2493`)
+  is not valid architecture evidence.
+- Tightened the corrective method: a separate 3000-step scheduler horizon is
+  still insufficient when auto-batch changes effective batch. The next gate
+  must advance warmup and cosine decay by cumulative effective tokens so LR is
+  equal at token-aligned comparison points.
+- Completed a 128-sequence fixed-sample checkpoint audit. Candidate loss is
+  `6.4496`; zero and shuffled readout conditions worsen it by `+1.1851` and
+  `+2.1057`, so the readout condition is used. However, trained head-output
+  rank fell to `1.55/8` from `4.47/8` in the smoke and below the old shared-key
+  checkpoint's `2.24/8`. The full independent-key reallocation is not promoted.
+  Full local tests pass: `56 passed`.

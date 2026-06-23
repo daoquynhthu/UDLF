@@ -16,6 +16,46 @@ If an issue does not need planned resolution, it does not belong in this file.
 
 ## Active
 
+### Medium architecture gates couple stop length to the LR schedule
+
+Status: open methodological blocker.
+
+Evidence:
+
+- The head-specific-key gate used `max_steps=300`, `warmup_steps=200`, and
+  `min_lr_ratio=0.1`; the scheduler therefore compressed the full cosine decay
+  into steps 200-300 and ended at LR `6e-5`.
+- The 3000-step control used the same peak LR but remained near `5.94e-4` at
+  the cumulative-token point corresponding to candidate step 300.
+- The previously recorded control window `361-427` was not token aligned.
+  Candidate steps 251-300 map to control steps 329-394 for effective batches
+  84 and 64 respectively.
+- The candidate mean loss `6.4386` versus control `6.2493` is therefore
+  confounded by schedule shape and cannot accept or reject the architecture.
+
+Resolution plan:
+
+1. Add token-based schedule horizons independent of the run stop step, with
+   backward-compatible defaults derived from the configured effective batch.
+2. Add scheduler tests proving runs with different effective batches produce
+   the same LR at the same cumulative effective-token count.
+3. Report cumulative effective tokens and LR ranges in architecture-gate
+   summaries; derive comparison windows mechanically.
+4. Re-run only the 300-step head-specific-key gate with the control's warmup-
+   token and total-token schedule.
+5. Require trained readout-head rank as well as quality; the invalid gate fell
+   to `1.55/8` and does not justify a longer continuation.
+
+Exit criteria:
+
+- A short gate and its long-run control have identical LR at the same
+  cumulative effective-token count even when auto-batch selects different
+  effective batches.
+- Token-aligned windows are generated from recorded effective batch and
+  sequence length, not hand-selected.
+- The corrected 300-step result has fixed-sample quality and readout geometry
+  sufficient to make an accept/reject decision.
+
 ### Windows WDDM paged variable-shape CUDA allocations into system RAM
 
 Status: resolved on 2026-06-21.
